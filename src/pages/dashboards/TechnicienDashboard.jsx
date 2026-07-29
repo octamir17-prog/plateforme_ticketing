@@ -22,46 +22,7 @@ export default function TechnicienDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEscaladeModalOpen, setIsEscaladeModalOpen] = useState(false);
 
-  const [tickets, setTickets] = useState([
-    {
-      id: 101,
-      reference: 'TCK-2026-001',
-      titre: 'Panne de connexion réseau au 2ème étage',
-      description: 'Le switch principal du couloir B ne répond plus depuis ce matin.',
-      statut: 'AFFECTE',
-      dateCreation: '26/07/2026',
-      categorie: { id: 2, nom: 'Réseau' },
-      agent: { matricule: 'AG-894', nom: 'KPOHINTO', prenom: 'Jean-Marc', numero: '+229 97000000', structureId: 1 },
-      affectation: {
-        id: 12,
-        statut: 'EN_ATTENTE',
-        priorite: 'HAUTE',
-        dateAffectation: '26/07/2026 09:00',
-        technicienId: 5,
-        responsableId: 2,
-        recuParEscalade: false
-      }
-    },
-    {
-      id: 102,
-      reference: 'TCK-2026-004',
-      titre: 'Imprimante HP non détectée',
-      description: 'Pilote manquant suite à la mise à jour Windows.',
-      statut: 'EN_COURS',
-      dateCreation: '25/07/2026',
-      categorie: { id: 1, nom: 'Matériel' },
-      agent: { matricule: 'AG-312', nom: 'SOSSOU', prenom: 'Carine', numero: '+229 96112233', structureId: 1 },
-      affectation: {
-        id: 15,
-        statut: 'EN_TRAITEMENT',
-        priorite: 'MOYENNE',
-        dateAffectation: '25/07/2026 14:30',
-        technicienId: 5,
-        responsableId: 2,
-        recuParEscalade: false
-      }
-    }
-  ]);
+  const [tickets, setTickets] = useState([]);
 
   const stats = {
     total: tickets.length,

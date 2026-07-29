@@ -20,11 +20,7 @@ export default function UtilisateurDashboard() {
   const [statusFilter, setStatusFilter] = useState('TOUS');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Votre ticket #TICK-8021 est pris en charge par un technicien.", date: "Il y a 10 min", lu: false },
-    { id: 2, message: "Le ticket #TICK-7984 a été marqué comme Résolu.", date: "Hier à 14:30", lu: false },
-    { id: 3, message: "Bienvenue sur la plateforme de ticketing du Ministère.", date: "20/07/2026", lu: true },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const unreadCount = notifications.filter(n => !n.lu).length;
 
@@ -36,12 +32,7 @@ export default function UtilisateurDashboard() {
     setNotifications(prev => prev.map(n => ({ ...n, lu: true })));
   };
 
-  const tickets = [
-    { id: 'TICK-8025', sujet: 'Demande de renouvellement de toner imprimante', categorie: 'Matériel', date: '23/07/2026', statut: 'SOUMIS' },
-    { id: 'TICK-8021', sujet: 'Panne de connexion réseau au 2ème étage', categorie: 'Réseau / Wifi', date: '22/07/2026', statut: 'EN_COURS' },
-    { id: 'TICK-7984', sujet: 'Imprimante HP non détectée', categorie: 'Matériel', date: '19/07/2026', statut: 'RESOLU' },
-    { id: 'TICK-7890', sujet: 'Problème d\'accès au logiciel métier', categorie: 'Logiciel', date: '15/07/2026', statut: 'RESOLU' },
-  ];
+  const tickets = [];
   
   const handleRelancer = (ticketId) => {
     alert(`Rappel envoyé pour le ticket ${ticketId}`);

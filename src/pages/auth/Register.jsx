@@ -1,34 +1,66 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, UserPlus } from 'lucide-react';
+import { authService } from '../../services/workflowService';
 
 export default function Register() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (password !== confirmPassword) {
-      alert('Les mots de passe ne correspondent pas.');
+      setError('Les mots de passe ne correspondent pas.');
       return;
     }
-    navigate('/login');
+
+    if (password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+
+    const matricule = localStorage.getItem('temp_matricule');
+    const code = localStorage.getItem('temp_code');
+
+    if (!matricule || !code) {
+      setError("Veuillez d'abord vérifier votre matricule et votre code.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await authService.finalizeRegistration(matricule, code, username, password);
+      localStorage.removeItem('temp_matricule');
+      localStorage.removeItem('temp_code');
+      navigate('/login');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Une erreur est survenue lors de l’inscription.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-        
         <div className="text-center space-y-2">
-          
           <h1 className="text-xl font-bold text-slate-800">Inscription</h1>
-          <p className="text-xs text-slate-500">Créez votre compte utilisateur</p>
+          <p className="text-xs text-slate-500">Finalisez votre compte utilisateur</p>
         </div>
 
+        {error && (
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Nom d'utilisateur
@@ -82,14 +114,20 @@ export default function Register() {
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 py-3 text-white font-semibold text-xs rounded-xl shadow-md transition-all hover:opacity-90 cursor-pointer mt-2"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3 text-white font-semibold text-xs rounded-xl shadow-md transition-all hover:opacity-90 cursor-pointer mt-2 disabled:opacity-50"
             style={{ backgroundColor: '#15aabf' }}
           >
             <UserPlus className="w-4 h-4" />
-            <span>S'inscrire</span>
+            <span>{loading ? 'Inscription...' : "S'inscrire"}</span>
           </button>
         </form>
 
+        <div className="text-center text-xs text-slate-500">
+          <Link to="/" className="text-[#15aabf] hover:underline">
+            Retour à la vérification
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,8 +26,8 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     const isAuthRequest = originalRequest.url?.includes('/auth/login') || 
-                          originalRequest.url?.includes('/auth/activation') ||
-                          originalRequest.url?.includes('/auth/refresh');
+                originalRequest.url?.includes('/auth/activation') ||
+                originalRequest.url?.includes('/auth/refresh');
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true;
@@ -37,7 +37,8 @@ api.interceptors.response.use(
         try {
           const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
           
-          const newAccessToken = res.data?.data?.accessToken || res.data?.accessToken;
+          const payload = res.data?.data || res.data;
+          const newAccessToken = payload?.accessToken;
 
           if (newAccessToken) {
             localStorage.setItem('accessToken', newAccessToken);

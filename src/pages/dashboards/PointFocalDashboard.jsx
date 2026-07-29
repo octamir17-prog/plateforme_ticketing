@@ -5,10 +5,7 @@ export default function PointFocalDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [agents, setAgents] = useState([
-    { matricule: 'AG-894', nom: 'KPOHINTO', prenom: 'Jean-Marc', sexe: 'M', numero: '+229 97000000', email: 'jean@sante.gouv.bj', actif: true },
-    { matricule: 'AG-312', nom: 'SOSSOU', prenom: 'Carine', sexe: 'F', numero: '+229 96112233', email: 'carine@sante.gouv.bj', actif: true }
-  ]);
+  const [agents, setAgents] = useState([]);
 
   const [newAgent, setNewAgent] = useState({
     matricule: '', nom: '', prenom: '', sexe: 'M', numero: '', email: ''

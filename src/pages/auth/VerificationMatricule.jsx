@@ -11,52 +11,71 @@ import {
   User,
   Briefcase
 } from 'lucide-react';
+import { authService } from '../../services/workflowService';
 
 export default function VerificationMatricule() {
   const navigate = useNavigate();
   
-  // États du formulaire
   const [matricule, setMatricule] = useState('');
   const [telephone, setTelephone] = useState('');
   const [code, setCode] = useState('');
-
-  // États du flux (1: Saisie infos, 2: Code email, 3: Choix du profil)
-  const [step, setStep] = useState(1); // 1 = Infos, 2 = Code, 3 = Choix rôle
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // Étape 1 : Demander le code par email
-  const handleSendCode = (e) => {
+  const handleSendCode = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authService.verifyAgent(matricule, telephone, false);
+      if (res && res.success === false) {
+        setError(res.message || 'Erreur lors de la vérification.');
+      } else {
+        setStep(2);
+        setSuccessMessage('Code envoyé. Vérifiez votre adresse email institutionnelle.');
+      }
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setError('Un compte existe déjà pour cet agent. Connectez-vous via la page de connexion.');
+      } else {
+        setError(err.response?.data?.message || 'Impossible d’envoyer le code. Veuillez réessayer.');
+      }
+    } finally {
       setLoading(false);
-      setStep(2);
-    }, 600);
+    }
   };
 
-  // Étape 2 : Confirmer le code
-  const handleVerifyCode = (e) => {
+  const handleVerifyCode = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authService.verifyCode(matricule, code);
+      if (res && res.success === false) {
+        setError(res.message || 'Code invalide.');
+      } else {
+        localStorage.setItem('temp_matricule', matricule);
+        localStorage.setItem('temp_code', code);
+        setStep(3);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Code incorrect.');
+    } finally {
       setLoading(false);
-      localStorage.setItem('temp_matricule', matricule);
-      localStorage.setItem('temp_telephone', telephone);
-      setStep(3); // Passe au choix du profil
-    }, 600);
+    }
   };
 
-  // Étape 3 : Choix du rôle et redirection
   const handleRoleSelection = (role) => {
     if (role === 'AGENT') {
       navigate('/home');
     } else if (role === 'UTILISATEUR') {
-      navigate('/login');
+      navigate('/inscription');
     }
   };
 
@@ -137,6 +156,12 @@ export default function VerificationMatricule() {
               )}
             </button>
           </form>
+        )}
+
+        {successMessage && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs">
+            {successMessage}
+          </div>
         )}
 
         {/* ÉTAPE 2 : Saisie du Code */}

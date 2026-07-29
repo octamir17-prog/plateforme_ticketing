@@ -5,7 +5,6 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import StaffActivation from './pages/auth/StaffActivation';
 import StaffLogin from './pages/auth/StaffLogin';
-import PageViewerNav from './components/PageViewerNav';
 import CreateTicket from './components/tickets/CreateTicket';
 import Home from './pages/Home';
 import UtilisateurDashboard from './pages/dashboards/UtilisateurDashboard';
@@ -17,7 +16,6 @@ import AdminDashboard from './pages/dashboards/AdminDashboard';
 export default function App() {
   return (
     <>
-      <PageViewerNav />
       <Routes>
         <Route path="/" element={<VerificationMatricule />} />
         <Route path="/login" element={<Login />} />

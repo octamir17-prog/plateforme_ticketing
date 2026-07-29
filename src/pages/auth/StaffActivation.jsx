@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react'
+import { useParams, Link } from 'react-router-dom';
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -12,7 +12,7 @@ import {
   KeyRound, 
   ArrowLeft 
 } from 'lucide-react';
-import api from '../../services/api';
+import { authService } from '../../services/workflowService';
 
 export default function StaffActivation() {
   const { token } = useParams();
@@ -33,17 +33,17 @@ export default function StaffActivation() {
     const verifierToken = async () => {
       try {
         setLoading(true);
-        const res = await api.get(`/auth/activation/${token}`);
-        if (res.data && res.data.success) {
-          setDataActivation(res.data.data);
-        } else {
-          setTokenInvalid(true);
-        }
-      } catch (err) {
+      const res = await authService.getActivationInfo(token);
+      if (res && res.role) {
+        setDataActivation(res);
+      } else {
         setTokenInvalid(true);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      setTokenInvalid(true);
+    } finally {
+      setLoading(false);
+    }
     };
 
     if (token) {
@@ -70,12 +70,9 @@ export default function StaffActivation() {
 
     try {
       setSubmitting(true);
-      const res = await api.post(`/auth/activation/${token}`, {
-        username,
-        motdepasse
-      });
+      const res = await authService.activateAccount(token, username, motdepasse);
 
-      if (res.data && res.data.success) {
+      if (res && res.success !== false) {
         setIsSuccess(true);
       }
     } catch (err) {

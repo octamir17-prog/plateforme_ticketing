@@ -1,28 +1,34 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { authService } from '../../services/workflowService';
+import { useAuthStore } from '../../store/useAuthStore';
 import { User, Lock, LogIn } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const loginSuccess = useAuthStore(state => state.loginSuccess);
 
-const handleSubmit = (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    setTimeout(() => {
+    try {
+      const res = await authService.login(username, password, 'UTILISATEUR');
+      if (res && res.accessToken) {
+        loginSuccess({ accessToken: res.accessToken, refreshToken: res.refreshToken, typeCompte: res.typeCompte, profil: res.profil });
+        navigate('/utilisateur/dashboard');
+      } else {
+        setError('Échec de l\'authentification.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la connexion.');
+    } finally {
       setLoading(false);
-
-      setAuth({
-        accessToken: 'fake-jwt-token',
-        typeCompte: 'UTILISATEUR',
-        profil: { username }
-      });
-
-      navigate('/utilisateur/dashboard');
-    }, 600);
+    }
   };
 
   return (

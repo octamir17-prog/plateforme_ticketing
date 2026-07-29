@@ -1,12 +1,6 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
-test('hello world test', async ({ page }) => {
-    await page.goto('https://example.com');
-    const title = await page.title();
-    expect(title).toBe('Example Domain');
+test('app home page loads', async ({ page }) => {
+  await page.goto('http://localhost:5173');
+  await expect(page).toHaveTitle(/ticketing|assistance/i);
 });
-
-In package.json, add the following test script:
-"scripts": {
-    "test": "playwright test"
-}

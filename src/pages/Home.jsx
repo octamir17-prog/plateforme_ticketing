@@ -25,12 +25,12 @@ export default function Home() {
   // Mode édition pour les infos de l'agent
   const [isEditing, setIsEditing] = useState(false);
   const [agentInfo, setAgentInfo] = useState({
-    nom: 'KPOHINTO',
-    prenom: 'Jean-Marc',
-    matricule: 'MS-2026-894',
-    direction: 'Direction Départementale de la Santé',
-    email: 'jean.kpohinto@sante.gouv.bj',
-    telephone: '+229 97 00 00 00'
+    nom: '',
+    prenom: '',
+    matricule: '',
+    direction: '',
+    email: '',
+    telephone: ''
   });
 
   const handleInfoChange = (e) => {

@@ -7,7 +7,8 @@ import {
   AlertCircle, 
   Loader2 
 } from 'lucide-react';
-import api from '../../services/api';
+import { authService } from '../../services/workflowService';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function StaffLogin() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function StaffLogin() {
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const loginSuccess = useAuthStore((state) => state.loginSuccess);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,20 +27,12 @@ export default function StaffLogin() {
 
     try {
       setSubmitting(true);
-      const res = await api.post('/auth/login', {
-        username,
-        motdepasse,
-        typeCompte
-      });
+      const res = await authService.login(username, motdepasse, typeCompte.toUpperCase());
 
-      if (res.data && res.data.success) {
-        const { accessToken, refreshToken, profil, typeCompte: userType } = res.data.data;
-        
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('userProfil', JSON.stringify(profil));
-        localStorage.setItem('typeCompte', userType);
+      if (res && res.accessToken) {
+        loginSuccess({ accessToken: res.accessToken, refreshToken: res.refreshToken, typeCompte: res.typeCompte, profil: res.profil });
 
+        const userType = res.typeCompte;
         switch (userType) {
           case 'ADMIN':
             navigate('/admin/dashboard');
@@ -121,7 +115,7 @@ export default function StaffLogin() {
                     onChange={(e) => setTypeCompte(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all cursor-pointer"
                   >
-                    <option value="TECHNICIEN font-semibold">TECHNICIEN</option>
+                    <option value="TECHNICIEN">TECHNICIEN</option>
                     <option value="RESPONSABLE">RESPONSABLE</option>
                     <option value="POINT_FOCAL">POINT_FOCAL</option>
                     <option value="ADMIN">ADMIN</option>

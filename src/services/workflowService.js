@@ -2,13 +2,43 @@ import api from './api';
 
 export const authService = {
   login: async (username, motdepasse, typeCompte) => {
-    const res = await api.post('/auth/login', { username, motdepasse, typeCompte });
-    if (res.data.accessToken) {
-      localStorage.setItem('accessToken', res.data.accessToken);
-      localStorage.setItem('refreshToken', res.data.refreshToken);
-      localStorage.setItem('typeCompte', res.data.typeCompte);
+    const normalizedTypeCompte = typeof typeCompte === 'string' ? typeCompte.toUpperCase() : typeCompte;
+    const res = await api.post('/auth/login', { username, motdepasse, typeCompte: normalizedTypeCompte });
+    const payload = res.data?.data || res.data;
+    if (payload?.accessToken) {
+      localStorage.setItem('accessToken', payload.accessToken);
+      localStorage.setItem('refreshToken', payload.refreshToken);
+      localStorage.setItem('typeCompte', payload.typeCompte);
+      if (payload.profil || payload.user) {
+        localStorage.setItem('user', JSON.stringify(payload.profil || payload.user));
+      }
     }
-    return res.data;
+    return payload;
+  },
+
+  verifyAgent: async (matricule, numeroTelephone, aCompte = false) => {
+    const res = await api.post('/auth/verifier-agent', { matricule, numeroTelephone, aCompte });
+    return res.data?.data || res.data;
+  },
+
+  verifyCode: async (matricule, code) => {
+    const res = await api.post('/auth/verifier-code', { matricule, code });
+    return res.data?.data || res.data;
+  },
+
+  finalizeRegistration: async (matricule, code, username, motdepasse) => {
+    const res = await api.post('/auth/inscription/finaliser', { matricule, code, username, motdepasse });
+    return res.data?.data || res.data;
+  },
+
+  getActivationInfo: async (token) => {
+    const res = await api.get(`/auth/activation/${token}`);
+    return res.data?.data || res.data;
+  },
+
+  activateAccount: async (token, username, motdepasse) => {
+    const res = await api.post(`/auth/activation/${token}`, { username, motdepasse });
+    return res.data?.data || res.data;
   },
 
   logout: async () => {
@@ -25,17 +55,17 @@ export const authService = {
 
   getMe: async () => {
     const res = await api.get('/auth/me');
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   getActivationInfo: async (token) => {
     const res = await api.get(`/auth/activation/${token}`);
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   activateAccount: async (token, username, motdepasse) => {
     const res = await api.post(`/auth/activation/${token}`, { username, motdepasse });
-    return res.data;
+    return res.data?.data || res.data;
   }
 };
 

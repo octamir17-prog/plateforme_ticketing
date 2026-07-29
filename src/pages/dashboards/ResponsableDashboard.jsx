@@ -20,49 +20,7 @@ export default function ResponsableDashboard() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [tickets, setTickets] = useState([
-    {
-      id: 201,
-      reference: 'TCK-2026-088',
-      titre: 'Problème d\'accès à l\'application Métier',
-      description: 'L\'utilisateur ne parvient pas à s\'authentifier depuis ce matin.',
-      statut: 'SOUMIS',
-      dateCreation: '28/07/2026',
-      categorie: { id: 3, nom: 'Logiciel' },
-      agent: { matricule: 'AG-102', nom: 'HONFO', prenom: 'Gérard' },
-      affectation: null
-    },
-    {
-      id: 202,
-      reference: 'TCK-2026-085',
-      titre: 'Panne de la ligne téléphonique fixe',
-      description: 'Aucune tonalité sur le poste 4102.',
-      statut: 'EN_COURS',
-      dateCreation: '27/07/2026',
-      categorie: { id: 2, nom: 'Réseau' },
-      agent: { matricule: 'AG-204', nom: 'DOSSOU', prenom: 'Aline' },
-      affectation: {
-        id: 45,
-        statut: 'EN_TRAITEMENT',
-        technicien: { nom: 'KPOHINTO', prenom: 'Jean-Marc' }
-      }
-    },
-    {
-      id: 203,
-      reference: 'TCK-2026-079',
-      titre: 'Mise à jour serveur de données',
-      description: 'Nécessite une intervention de niveau 3.',
-      statut: 'ESCALADE',
-      dateCreation: '26/07/2026',
-      categorie: { id: 4, nom: 'Infrastructures' },
-      agent: { matricule: 'AG-005', nom: 'GABIN', prenom: 'Paul' },
-      affectation: {
-        id: 41,
-        statut: 'ESCALADE',
-        technicien: { nom: 'SOSSOU', prenom: 'Carine' }
-      }
-    }
-  ]);
+  const [tickets, setTickets] = useState([]);
 
   const stats = {
     total: tickets.length,

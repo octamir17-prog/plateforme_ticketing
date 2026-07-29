@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -20,43 +21,15 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 
-const MOCK_EMPLACEMENTS = [
-  { id: 1, username: 'CSA-RESP1', role: 'RESPONSABLE', codeStructure: 'CSA', statut: 'ACTIVE', structure: { codeStructure: 'CSA' } },
-  { id: 2, username: 'CSA-TEC1', role: 'TECHNICIEN', codeStructure: 'CSA', statut: 'ATTRIBUE', structure: { codeStructure: 'CSA' } },
-  { id: 3, username: 'CHD-PF1', role: 'POINT_FOCAL', codeStructure: 'CHD', statut: 'LIBRE', structure: { codeStructure: 'CHD' } },
-  { id: 4, username: 'MS-TEC2', role: 'TECHNICIEN', codeStructure: 'MS', statut: 'ACTIVE', structure: { codeStructure: 'MS' } },
-  { id: 5, username: 'DRS-RESP2', role: 'RESPONSABLE', codeStructure: 'DRS', statut: 'LIBRE', structure: { codeStructure: 'DRS' } },
-];
-
-const MOCK_STRUCTURES = [
-  { id: 1, codeStructure: 'CSA', designation: 'Centre de Santé d\'Arrondissement', type: 'Soins de base', niveau: 'Périphérique', nomResponsable: 'DOSSOU', prenomResponsable: 'Paul', emailResponsable: 'p.dossou@sante.gouv.bj', telephoneResponsable: '+229 97 00 00 01' },
-  { id: 2, codeStructure: 'CHD', designation: 'Centre Hospitalier Départemental', type: 'Hôpital', niveau: 'Intermédiaire', nomResponsable: 'ADAM', prenomResponsable: 'Sarah', emailResponsable: 's.adam@sante.gouv.bj', telephoneResponsable: '+229 97 00 00 02' },
-  { id: 3, codeStructure: 'MS', designation: 'Ministère de la Santé', type: 'Administration', niveau: 'Central', nomResponsable: 'KPADONOU', prenomResponsable: 'Michel', emailResponsable: 'm.kpadonou@sante.gouv.bj', telephoneResponsable: '+229 97 00 00 03' },
-  { id: 4, codeStructure: 'DRS', designation: 'Direction Régionale de la Santé', type: 'Direction', niveau: 'Régional', nomResponsable: 'BIO', prenomResponsable: 'Chantal', emailResponsable: 'c.bio@sante.gouv.bj', telephoneResponsable: '+229 97 00 00 04' },
-];
-
-const MOCK_TYPES = [
-  { id: 1, libelle: 'Soins de base', description: 'Centres de santé de proximité et dispensaires' },
-  { id: 2, libelle: 'Hôpital', description: 'Établissements hospitaliers départementaux et nationaux' },
-  { id: 3, libelle: 'Administration', description: 'Bureaux administratifs centraux et ministériels' },
-  { id: 4, libelle: 'Direction', description: 'Directions régionales et départementales' },
-];
-
-const MOCK_NIVEAUX = [
-  { id: 1, libelle: 'Central', rang: 1 },
-  { id: 2, libelle: 'Régional', rang: 2 },
-  { id: 3, libelle: 'Intermédiaire', rang: 3 },
-  { id: 4, libelle: 'Périphérique', rang: 4 },
-];
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  const [stats, setStats] = useState({ agents: 124, structures: 18, ticketsTotal: 450, ticketsClotures: 382 });
-  const [emplacements, setEmplacements] = useState(MOCK_EMPLACEMENTS);
-  const [structures, setStructures] = useState(MOCK_STRUCTURES);
-  const [types, setTypes] = useState(MOCK_TYPES);
-  const [niveaux, setNiveaux] = useState(MOCK_NIVEAUX);
+  const [stats, setStats] = useState({ agents: 0, structures: 0, ticketsTotal: 0, ticketsClotures: 0 });
+  const [emplacements, setEmplacements] = useState([]);
+  const [structures, setStructures] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [niveaux, setNiveaux] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [roleFilter, setRoleFilter] = useState('');
@@ -106,8 +79,8 @@ export default function AdminDashboard() {
       const [resDashboard, resStructures, resTypes, resNiveaux] = await Promise.all([
         api.get('/dashboard/admin'),
         api.get('/structures'),
-        api.get('/structures/types'),
-        api.get('/structures/niveaux')
+        api.get('/types'),
+        api.get('/niveaux')
       ]);
       if (resDashboard.data) setStats(resDashboard.data.data || resDashboard.data);
       if (resStructures.data) setStructures(resStructures.data.data || resStructures.data);
@@ -130,11 +103,7 @@ export default function AdminDashboard() {
       const res = await api.get(`/comptes/emplacements?${params.toString()}`);
       if (res.data) setEmplacements(res.data.data || res.data);
     } catch (err) {
-      let filtered = [...MOCK_EMPLACEMENTS];
-      if (roleFilter) filtered = filtered.filter(e => e.role === roleFilter);
-      if (statutFilter) filtered = filtered.filter(e => e.statut === statutFilter);
-      if (structureFilter) filtered = filtered.filter(e => e.codeStructure === structureFilter);
-      setEmplacements(filtered);
+      setEmplacements([]);
     }
   };
 
@@ -163,7 +132,7 @@ export default function AdminDashboard() {
   const handleCreateType = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/structures/types', newType);
+      await api.post('/types', newType);
       setShowNouveauTypeModal(false);
       fetchInitialData();
     } catch (err) {
@@ -174,56 +143,83 @@ export default function AdminDashboard() {
   const handleCreateNiveau = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/structures/niveaux', newNiveau);
+      await api.post('/niveaux', newNiveau);
       setShowNouveauNiveauModal(false);
       fetchInitialData();
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de la création du niveau');
     }
   };
-const handleAttribuer = async (e) => {
-  e.preventDefault();
 
-  try {
-    const payload = {
-      matricule: matriculeInput,
-      codeEmplacement: emplacementSelectionne.codeEmplacement,
-      role: emplacementSelectionne.role,
-      codeStructure: emplacementSelectionne.codeStructure
-    };
+  const handleAttribuer = async (e) => {
+    e.preventDefault();
 
-    const response = await api.post('/comptes/attribuer', payload);
+    if (!selectedEmplacement) {
+      alert('Aucun emplacement sélectionné.');
+      return;
+    }
 
-    if (response.data && response.data.success) {
-      alert('Lien d\'activation envoyé avec succès !');
-      
-      if (response.data.data?.token) {
-        console.log('Token généré (dev) :', response.data.data.token);
+    try {
+      const payload = {
+        agentMatricule: attributionForm.agentMatricule,
+        role: selectedEmplacement.role,
+        username: selectedEmplacement.username
+      };
+
+      const response = await api.post('/comptes/attribuer', payload);
+
+      if (response.data && (response.data.success || response.status === 201 || response.status === 200)) {
+        alert('Lien d\'activation envoyé avec succès !');
+
+        if (response.data.data?.token) {
+          console.log('Token généré (dev) :', response.data.data.token);
+        }
+
+        setShowAttributionModal(false);
+        setAttributionForm({ agentMatricule: '', agentNom: '', agentStructure: '' });
+        fetchEmplacements();
       }
+    } catch (error) {
+      console.error('Détail erreur attribution :', error.response);
 
-      setOpenModal(false);
-      chargerEmplacements();
+      const status = error.response?.status;
+      const messageServeur = error.response?.data?.message || error.response?.data?.error;
+
+      if (status === 404) {
+        alert(`Erreur : Agent introuvable avec le matricule ${attributionForm.agentMatricule}`);
+      } else if (status === 409) {
+        alert('Erreur : Cet emplacement est déjà attribué ou cet agent a déjà un compte.');
+      } else if (status === 401 || status === 403) {
+        alert('Erreur : Session expirée ou droits insuffisants (Veuillez vous reconnecter).');
+      } else if (messageServeur) {
+        alert(`Erreur backend (${status || 'Inconnu'}) : ${messageServeur}`);
+      } else {
+        alert('Impossible de contacter le serveur backend. Vérifiez vos journaux.');
+      }
     }
-  } catch (error) {
-    console.error('Détail erreur attribution :', error.response);
+  };
 
-    const status = error.response?.status;
-    const messageServeur = error.response?.data?.message || error.response?.data?.error;
-
-    if (status === 404) {
-      alert(`Erreur : Agent introuvable avec le matricule ${matriculeInput}`);
-    } else if (status === 409) {
-      alert('Erreur : Cet emplacement est déjà attribué ou cet agent a déjà un compte.');
-    } else if (status === 401 || status === 403) {
-      alert('Erreur : Session expirée ou droits insuffisants (Veuillez vous reconnecter).');
-    } else if (messageServeur) {
-      alert(`Erreur backend (${status || 'Inconnu'}) : ${messageServeur}`);
-    } else {
-      alert('Impossible de contacter le serveur backend. Vérifiez vos journaux.');
+  const handleRenvoyerLien = async () => {
+    if (!selectedEmplacement) {
+      alert('Aucun emplacement sélectionné.');
+      return;
     }
-  }
-};
-  
+    try {
+      const payload = {
+        role: selectedEmplacement.role,
+        username: selectedEmplacement.username
+      };
+      const res = await api.post('/comptes/renvoyer-lien', payload);
+      if (res.data && (res.data.success || res.status === 200)) {
+        alert('Lien d\'activation renvoyé avec succès.');
+        setShowGererModal(false);
+        fetchEmplacements();
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Erreur lors du renvoi du lien';
+      alert(msg);
+    }
+  };
 
   const handleLibererEmplacement = async () => {
     if (!window.confirm('Voulez-vous vraiment libérer cet emplacement ?')) return;
