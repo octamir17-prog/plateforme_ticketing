@@ -11,7 +11,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,7 +31,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = sessionStorage.getItem('refreshToken');
 
       if (refreshToken) {
         try {
@@ -41,12 +41,12 @@ api.interceptors.response.use(
           const newAccessToken = payload?.accessToken;
 
           if (newAccessToken) {
-            localStorage.setItem('accessToken', newAccessToken);
+            sessionStorage.setItem('accessToken', newAccessToken);
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return api(originalRequest);
           }
         } catch (refreshError) {
-          localStorage.clear();
+          sessionStorage.clear();
           window.location.href = '/connexion-staff';
           return Promise.reject(refreshError);
         }

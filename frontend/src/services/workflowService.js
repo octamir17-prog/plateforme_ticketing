@@ -2,13 +2,8 @@ import api from './api';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const authService = {
-  login: async (username, motdepasse, typeCompte) => {
-    const normalizedTypeCompte = typeof typeCompte === 'string' ? typeCompte.toUpperCase() : typeCompte;
-    const body = { username, motdepasse };
-    if (normalizedTypeCompte) {
-      body.typeCompte = normalizedTypeCompte;
-    }
-    const res = await api.post('/auth/login', body);
+  login: async (username, motdepasse) => {
+    const res = await api.post('/auth/login', { username, motdepasse });
     const payload = res.data?.data || res.data;
     if (payload?.accessToken) {
       useAuthStore.getState().loginSuccess(payload);
@@ -42,13 +37,13 @@ export const authService = {
   },
 
   logout: async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = sessionStorage.getItem('refreshToken');
     try {
       if (refreshToken) {
         await api.post('/auth/logout', { refreshToken });
       }
     } finally {
-      localStorage.clear();
+      sessionStorage.clear();
       window.location.href = '/connexion-staff';
     }
   },

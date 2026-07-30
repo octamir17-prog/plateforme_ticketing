@@ -44,6 +44,10 @@ async function assignerTechnicien(req, res) {
     return res.status(400).json({ success: false, message: 'Le technicien est obligatoire.', errors: [] });
   }
 
+  if (!priorite) {
+    return res.status(400).json({ success: false, message: 'La priorite est obligatoire.', errors: [] });
+  }
+
   const affectation = await chargerAffectation(req.params.id);
 
   if (!affectation) {

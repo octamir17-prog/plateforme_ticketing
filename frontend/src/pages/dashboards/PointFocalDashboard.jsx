@@ -1,35 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Search, CheckCircle, XCircle, Plus, X } from 'lucide-react';
+import api from '../../services/api';
 
 export default function PointFocalDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const [newAgent, setNewAgent] = useState({
     matricule: '', nom: '', prenom: '', sexe: 'M', numero: '', email: ''
   });
 
-  const handleAddAgent = (e) => {
+  const fetchAgents = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/agents');
+      const payload = res.data?.data || res.data || [];
+      setAgents(Array.isArray(payload) ? payload : []);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Impossible de charger les agents.');
+      setAgents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAgents();
+  }, []);
+
+  const handleAddAgent = async (e) => {
     e.preventDefault();
-    setAgents(prev => [...prev, { ...newAgent, actif: true }]);
-    setIsModalOpen(false);
-    setNewAgent({ matricule: '', nom: '', prenom: '', sexe: 'M', numero: '', email: '' });
+    setSubmitting(true);
+    try {
+      await api.post('/agents', newAgent);
+      setFeedback('Agent enregistre avec succes.');
+      setIsModalOpen(false);
+      setNewAgent({ matricule: '', nom: '', prenom: '', sexe: 'M', numero: '', email: '' });
+      fetchAgents();
+    } catch (err) {
+      setFeedback(err.response?.data?.message || 'Impossible d\'enregistrer cet agent.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const toggleStatus = (matricule) => {
-    setAgents(prev => prev.map(a => a.matricule === matricule ? { ...a, actif: !a.actif } : a));
+  const toggleStatus = async (agent) => {
+    try {
+      const action = agent.actif ? 'desactiver' : 'reactiver';
+      await api.patch(`/agents/${agent.matricule}/${action}`);
+      fetchAgents();
+    } catch (err) {
+      setFeedback(err.response?.data?.message || 'Impossible de modifier le statut de cet agent.');
+    }
   };
 
-  const filteredAgents = agents.filter(a => 
-    a.nom.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    a.matricule.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAgents = agents.filter((a) =>
+    (a.nom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(a.matricule || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
-      
+
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
         <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
@@ -66,6 +105,13 @@ export default function PointFocalDashboard() {
         </button>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>
+      )}
+      {feedback && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{feedback}</div>
+      )}
+
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
         <div className="relative max-w-xs w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -92,26 +138,36 @@ export default function PointFocalDashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredAgents.map((agent) => (
-              <tr key={agent.matricule} className="hover:bg-slate-50/50">
-                <td className="p-4 font-bold text-slate-800">{agent.matricule}</td>
-                <td className="p-4">{agent.nom} {agent.prenom}</td>
-                <td className="p-4 text-slate-500">{agent.email} ({agent.numero})</td>
-                <td className="p-4">
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${agent.actif ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {agent.actif ? 'Actif' : 'Inactif'}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <button
-                    onClick={() => toggleStatus(agent.matricule)}
-                    className="text-xs font-semibold text-slate-600 hover:underline cursor-pointer"
-                  >
-                    {agent.actif ? 'Désactiver' : 'Réactiver'}
-                  </button>
-                </td>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-slate-400">Chargement...</td>
               </tr>
-            ))}
+            ) : filteredAgents.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-slate-400">Aucun agent trouvé.</td>
+              </tr>
+            ) : (
+              filteredAgents.map((agent) => (
+                <tr key={agent.matricule} className="hover:bg-slate-50/50">
+                  <td className="p-4 font-bold text-slate-800">{agent.matricule}</td>
+                  <td className="p-4">{agent.nom} {agent.prenom}</td>
+                  <td className="p-4 text-slate-500">{agent.email} ({agent.numero})</td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${agent.actif ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      {agent.actif ? 'Actif' : 'Inactif'}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => toggleStatus(agent)}
+                      className="text-xs font-semibold text-slate-600 hover:underline cursor-pointer"
+                    >
+                      {agent.actif ? 'Désactiver' : 'Réactiver'}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -140,6 +196,13 @@ export default function PointFocalDashboard() {
                 </div>
               </div>
               <div>
+                <label className="block font-semibold mb-1">Sexe</label>
+                <select value={newAgent.sexe} onChange={e => setNewAgent({...newAgent, sexe: e.target.value})} className="w-full p-2 bg-slate-50 border rounded-xl">
+                  <option value="M">Masculin</option>
+                  <option value="F">Féminin</option>
+                </select>
+              </div>
+              <div>
                 <label className="block font-semibold mb-1">Email</label>
                 <input required type="email" value={newAgent.email} onChange={e => setNewAgent({...newAgent, email: e.target.value})} className="w-full p-2 bg-slate-50 border rounded-xl" />
               </div>
@@ -149,7 +212,9 @@ export default function PointFocalDashboard() {
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-3 py-2 text-slate-600">Annuler</button>
-                <button type="submit" className="px-4 py-2 bg-[#15aabf] text-white font-semibold rounded-xl">Enregistrer</button>
+                <button type="submit" disabled={submitting} className="px-4 py-2 bg-[#15aabf] text-white font-semibold rounded-xl disabled:opacity-50">
+                  {submitting ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
               </div>
             </form>
           </div>

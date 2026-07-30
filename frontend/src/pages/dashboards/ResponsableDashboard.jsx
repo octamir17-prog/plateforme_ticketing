@@ -5,6 +5,7 @@ import {
   Clock,
   Search,
   User,
+  UserPlus,
   AlertCircle,
   Folder,
   ArrowRightLeft,
@@ -27,12 +28,13 @@ export default function ResponsableDashboard() {
   const [ticketActif, setTicketActif] = useState(null);
   const [modaleOuverte, setModaleOuverte] = useState(null);
   const [nouveauTechnicienId, setNouveauTechnicienId] = useState('');
+  const [priorite, setPriorite] = useState('');
   const [codeStructureCible, setCodeStructureCible] = useState('');
   const [raison, setRaison] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
-  const structureResponsable = JSON.parse(localStorage.getItem('user') || '{}')?.structureId;
+  const structureResponsable = JSON.parse(sessionStorage.getItem('user') || '{}')?.structureId;
 
   const fetchTickets = async () => {
     try {
@@ -89,9 +91,15 @@ export default function ResponsableDashboard() {
     setModaleOuverte(null);
     setTicketActif(null);
     setNouveauTechnicienId('');
+    setPriorite('');
     setCodeStructureCible('');
     setRaison('');
     setCommentaire('');
+  };
+
+  const ouvrirAffectation = (ticket) => {
+    setTicketActif(ticket);
+    setModaleOuverte('affecter');
   };
 
   const ouvrirTransfert = (ticket) => {
@@ -116,6 +124,26 @@ export default function ResponsableDashboard() {
   const ouvrirRetour = (ticket) => {
     setTicketActif(ticket);
     setModaleOuverte('retourner');
+  };
+
+  const handleAffecter = async (e) => {
+    e.preventDefault();
+    if (!ticketActif?.affectation?.id || !nouveauTechnicienId || !priorite) return;
+
+    setEnvoiEnCours(true);
+    try {
+      await api.patch(`/affectations/${ticketActif.affectation.id}/assigner-technicien`, {
+        technicienId: Number(nouveauTechnicienId),
+        priorite,
+      });
+      setFeedback('Technicien affecte avec succes.');
+      reinitialiserModale();
+      fetchTickets();
+    } catch (err) {
+      setFeedback(err.response?.data?.message || 'Impossible d\'affecter ce technicien.');
+    } finally {
+      setEnvoiEnCours(false);
+    }
   };
 
   const handleTransferer = async (e) => {
@@ -372,6 +400,16 @@ export default function ResponsableDashboard() {
                       <td className="py-4 px-6 whitespace-nowrap text-right">
                         {!estCloture && (
                           <div className="inline-flex items-center justify-end gap-2">
+                            {!aUnTechnicien && (
+                              <button
+                                onClick={() => ouvrirAffectation(ticket)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                              >
+                                <UserPlus className="w-3 h-3" />
+                                <span>Affecter</span>
+                              </button>
+                            )}
+
                             {aUnTechnicien && (
                               <button
                                 onClick={() => ouvrirTransfert(ticket)}
@@ -410,6 +448,60 @@ export default function ResponsableDashboard() {
           )}
         </div>
       </div>
+
+      {modaleOuverte === 'affecter' && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800">Affecter le ticket #{ticketActif?.reference}</h3>
+              <button onClick={reinitialiserModale} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAffecter} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Technicien</label>
+                <select
+                  required
+                  value={nouveauTechnicienId}
+                  onChange={(e) => setNouveauTechnicienId(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
+                >
+                  <option value="">Sélectionner...</option>
+                  {techniciens.filter((t) => t.actif !== false).map((t) => (
+                    <option key={t.id} value={t.id}>{t.username}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Priorité</label>
+                <select
+                  required
+                  value={priorite}
+                  onChange={(e) => setPriorite(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
+                >
+                  <option value="">Sélectionner...</option>
+                  <option value="BASSE">Basse</option>
+                  <option value="NORMALE">Normale</option>
+                  <option value="HAUTE">Haute</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button type="button" onClick={reinitialiserModale} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer">
+                  Annuler
+                </button>
+                <button type="submit" disabled={envoiEnCours} className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-700 rounded-xl transition-colors cursor-pointer disabled:opacity-50">
+                  {envoiEnCours ? 'Envoi...' : 'Confirmer l\'affectation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {modaleOuverte === 'transferer' && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">

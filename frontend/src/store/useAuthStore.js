@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 
 export const useAuthStore = create((set) => ({
-  user: JSON.parse(localStorage.getItem('user')) || null,
-  typeCompte: localStorage.getItem('typeCompte') || null,
-  accessToken: localStorage.getItem('accessToken') || null,
-  refreshToken: localStorage.getItem('refreshToken') || null,
+  user: JSON.parse(sessionStorage.getItem('user')) || null,
+  typeCompte: sessionStorage.getItem('typeCompte') || null,
+  accessToken: sessionStorage.getItem('accessToken') || null,
+  refreshToken: sessionStorage.getItem('refreshToken') || null,
 
   loginSuccess: (data) => {
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    localStorage.setItem('typeCompte', data.typeCompte);
-    localStorage.setItem('user', JSON.stringify(data.profil));
+    sessionStorage.setItem('accessToken', data.accessToken);
+    sessionStorage.setItem('refreshToken', data.refreshToken);
+    sessionStorage.setItem('typeCompte', data.typeCompte);
+    sessionStorage.setItem('user', JSON.stringify(data.profil));
 
     set({
       user: data.profil,
@@ -21,14 +21,16 @@ export const useAuthStore = create((set) => ({
   },
 
   setTokens: (accessToken, refreshToken) => {
+    sessionStorage.setItem('accessToken', accessToken);
+    sessionStorage.setItem('refreshToken', refreshToken);
     set({ accessToken, refreshToken });
   },
 
   logout: () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('typeCompte');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('typeCompte');
+    sessionStorage.removeItem('user');
     set({ user: null, typeCompte: null, accessToken: null, refreshToken: null });
   },
 }));

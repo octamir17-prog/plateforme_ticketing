@@ -55,22 +55,6 @@ const categoriesMetier = [
   { nom: 'Compte et acces', description: 'Mot de passe oublie, compte bloque, droits insuffisants, messagerie inaccessible' },
 ];
 
-const agentsTest = [
-  { matricule: 1001, nom: 'TEST', prenom: 'Elmira', sexe: 'F', numero: '97000001', email: 'elmira.test@sante.bj', codeStructure: 'CSA' },
-  { matricule: 1002, nom: 'TEST', prenom: 'Vladimir', sexe: 'M', numero: '97000002', email: 'vladimir.test@sante.bj', codeStructure: 'CSA' },
-  { matricule: 1003, nom: 'TEST', prenom: 'Naruto', sexe: 'M', numero: '97000003', email: 'naruto.test@sante.bj', codeStructure: 'CSA' },
-  { matricule: 1004, nom: 'ADJOVI', prenom: 'Clarisse', sexe: 'F', numero: '97000004', email: 'clarisse.adjovi@sante.bj', codeStructure: 'CSA' },
-  { matricule: 1005, nom: 'KOUTON', prenom: 'Paul', sexe: 'M', numero: '97000005', email: 'paul.kouton@sante.bj', codeStructure: 'CSA' },
-  { matricule: 1006, nom: 'DOSSOU', prenom: 'Jean', sexe: 'M', numero: '97000006', email: 'jean.dossou@sante.bj', codeStructure: 'DSI' },
-  { matricule: 1007, nom: 'HOUNKPE', prenom: 'Alice', sexe: 'F', numero: '97000007', email: 'alice.hounkpe@sante.bj', codeStructure: 'DSI' },
-  { matricule: 1008, nom: 'TCHIBOZO', prenom: 'Serge', sexe: 'M', numero: '97000008', email: 'serge.tchibozo@sante.bj', codeStructure: 'DSI' },
-  { matricule: 1009, nom: 'ZINSOU', prenom: 'Bertrand', sexe: 'M', numero: '97000009', email: 'bertrand.zinsou@sante.bj', codeStructure: 'DDS' },
-  { matricule: 1010, nom: 'AGBODJAN', prenom: 'Rachel', sexe: 'F', numero: '97000010', email: 'rachel.agbodjan@sante.bj', codeStructure: 'DDS' },
-  { matricule: 1011, nom: 'SOSSOU', prenom: 'Isidore', sexe: 'M', numero: '97000011', email: 'isidore.sossou@sante.bj', codeStructure: 'CHD' },
-  { matricule: 1012, nom: 'AHOUANSOU', prenom: 'Delphine', sexe: 'F', numero: '97000012', email: 'delphine.ahouansou@sante.bj', codeStructure: 'HZ' },
-];
-
-
 function genererMotDePasseAleatoire() {
   return crypto.randomBytes(12).toString('base64url');
 }
@@ -93,13 +77,6 @@ async function viderBase() {
 }
 
 async function creerAdmin() {
-  const nombreAdmins = await prisma.admin.count();
-
-  if (nombreAdmins > 0) {
-    console.log('Un compte administrateur existe deja, creation ignoree.');
-    return null;
-  }
-
   const username = process.env.ADMIN_USERNAME || 'admin';
   let motDePasse = process.env.ADMIN_PASSWORD;
   let motDePasseGenere = false;
@@ -187,63 +164,35 @@ async function creerEmplacements(structuresParCode) {
   return nombreEmplacements;
 }
 
-async function creerAgentsTest(structuresParCode) {
-  for (const agent of agentsTest) {
-    await prisma.agent.create({
-      data: {
-        matricule: agent.matricule,
-        nom: agent.nom,
-        prenom: agent.prenom,
-        sexe: agent.sexe,
-        numero: agent.numero,
-        email: agent.email,
-        structureId: structuresParCode[agent.codeStructure].id,
-      },
-    });
-  }
-
-  return agentsTest.length;
-}
-
-function tableDuRole(role) {
-  if (role === 'RESPONSABLE') {
-    return prisma.responsableEquipeTechnique;
-  }
-
-  if (role === 'TECHNICIEN') {
-    return prisma.technicien;
-  }
-
-  return prisma.pointFocal;
-}
-
 async function main() {
+  const nombreAdmins = await prisma.admin.count();
+
+  if (nombreAdmins > 0) {
+    console.log('Un compte administrateur existe deja. Seed interrompu, aucune donnee touchee.');
+    return;
+  }
+
   await viderBase();
 
   const structuresParCode = await creerDonneesReference();
   const admin = await creerAdmin();
   const nombreEmplacements = await creerEmplacements(structuresParCode);
-  const nombreAgents = await creerAgentsTest(structuresParCode);
 
   console.log('=== SEED TERMINE ===');
   console.log(`Structures     : ${Object.keys(structuresParCode).length}`);
   console.log(`Categories     : ${categoriesMetier.length}`);
   console.log(`Emplacements   : ${nombreEmplacements}`);
-  console.log(`Agents de test : ${nombreAgents}`);
   console.log('');
+  console.log(`Administrateur : ${admin.username}`);
 
-  if (admin) {
-    console.log(`Administrateur : ${admin.username}`);
-
-    if (admin.motDePasseGenere) {
-      console.log('');
-      console.log('  MOT DE PASSE GENERE AUTOMATIQUEMENT, NOTEZ-LE MAINTENANT :');
-      console.log(`  ${admin.motDePasse}`);
-      console.log('  Il ne sera plus jamais affiche.');
-      console.log('');
-    } else {
-      console.log('Mot de passe   : celui defini dans ADMIN_PASSWORD');
-    }
+  if (admin.motDePasseGenere) {
+    console.log('');
+    console.log('  MOT DE PASSE GENERE AUTOMATIQUEMENT, NOTEZ-LE MAINTENANT :');
+    console.log(`  ${admin.motDePasse}`);
+    console.log('  Il ne sera plus jamais affiche.');
+    console.log('');
+  } else {
+    console.log('Mot de passe   : celui defini dans ADMIN_PASSWORD');
   }
 
   console.log('');
