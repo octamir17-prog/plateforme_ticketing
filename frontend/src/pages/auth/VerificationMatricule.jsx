@@ -31,19 +31,11 @@ export default function VerificationMatricule() {
     setLoading(true);
 
     try {
-      const res = await authService.verifyAgent(matricule, telephone, false);
-      if (res && res.success === false) {
-        setError(res.message || 'Erreur lors de la vérification.');
-      } else {
-        setStep(2);
-        setSuccessMessage('Code envoyé. Vérifiez votre adresse email institutionnelle.');
-      }
+      await authService.verifyAgent(matricule, telephone);
+      setStep(2);
+      setSuccessMessage('Code envoyé. Vérifiez votre adresse email institutionnelle.');
     } catch (err) {
-      if (err.response?.status === 409) {
-        setError('Un compte existe déjà pour cet agent. Connectez-vous via la page de connexion.');
-      } else {
-        setError(err.response?.data?.message || 'Impossible d’envoyer le code. Veuillez réessayer.');
-      }
+      setError(err.response?.data?.message || 'Impossible d\'effectuer la vérification. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -60,8 +52,13 @@ export default function VerificationMatricule() {
       if (res && res.success === false) {
         setError(res.message || 'Code invalide.');
       } else {
+        // Conserve pour la finalisation d'inscription (Register.jsx)
         localStorage.setItem('temp_matricule', matricule);
         localStorage.setItem('temp_code', code);
+
+        // Conserve le profil complet pour la page de prévisualisation (Home.jsx)
+        sessionStorage.setItem('agentPreview', JSON.stringify({ ...res, matricule, code }));
+
         setStep(3);
       }
     } catch (err) {
@@ -75,7 +72,8 @@ export default function VerificationMatricule() {
     if (role === 'AGENT') {
       navigate('/home');
     } else if (role === 'UTILISATEUR') {
-      navigate('/inscription');
+      // Par contrat, 'Espace utilisateur' est le formulaire de connexion (POST /auth/login)
+      navigate('/login');
     }
   };
 

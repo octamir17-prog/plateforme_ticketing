@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { 
-  Wrench, 
-  Play, 
-  CheckCircle2, 
-  Clock, 
-  Search, 
-  User, 
+import React, { useEffect, useState } from 'react';
+import {
+  Wrench,
+  Play,
+  CheckCircle2,
+  Clock,
+  Search,
+  User,
   X,
   AlertCircle,
   Folder,
-  ArrowUpRight
+  ArrowUpRight,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -21,25 +21,42 @@ export default function TechnicienDashboard() {
   const [motifEscalade, setMotifEscalade] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEscaladeModalOpen, setIsEscaladeModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [tickets, setTickets] = useState([]);
 
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/tickets');
+        const payload = res.data?.data || res.data || [];
+        setTickets(Array.isArray(payload) ? payload : []);
+        setError('');
+      } catch (err) {
+        setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
+        setTickets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
   const stats = {
     total: tickets.length,
-    affectes: tickets.filter(t => t.affectation.statut === 'EN_ATTENTE').length,
-    enTraitement: tickets.filter(t => t.affectation.statut === 'EN_TRAITEMENT').length,
-    escalades: tickets.filter(t => t.affectation.statut === 'ESCALADE').length,
-    clotures: tickets.filter(t => t.affectation.statut === 'CLOTUREE').length
+    affectes: tickets.filter((t) => t.affectation?.statut === 'EN_ATTENTE').length,
+    enTraitement: tickets.filter((t) => t.affectation?.statut === 'EN_TRAITEMENT').length,
+    escalades: tickets.filter((t) => t.affectation?.statut === 'ESCALADE').length,
+    clotures: tickets.filter((t) => t.affectation?.statut === 'CLOTUREE').length,
   };
 
   const handleDemarrer = async (affectationId) => {
     try {
       await api.post(`/affectations/${affectationId}/demarrer`);
-      setTickets(prev => prev.map(t => 
-        t.affectation.id === affectationId 
-          ? { ...t, affectation: { ...t.affectation, statut: 'EN_TRAITEMENT' } } 
-          : t
-      ));
+      setTickets((prev) => prev.map((t) => (t.affectation?.id === affectationId ? { ...t, affectation: { ...t.affectation, statut: 'EN_TRAITEMENT' } } : t)));
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors du démarrage du traitement.');
     }
@@ -53,13 +70,9 @@ export default function TechnicienDashboard() {
 
     try {
       await api.post(`/affectations/${affectationId}/cloturer`, {
-        commentaire: commentaireCloture || undefined
+        commentaire: commentaireCloture || undefined,
       });
-      setTickets(prev => prev.map(t => 
-        t.affectation.id === affectationId 
-          ? { ...t, affectation: { ...t.affectation, statut: 'CLOTUREE' } } 
-          : t
-      ));
+      setTickets((prev) => prev.map((t) => (t.affectation?.id === affectationId ? { ...t, affectation: { ...t.affectation, statut: 'CLOTUREE' } } : t)));
       setIsModalOpen(false);
       setSelectedTicket(null);
       setCommentaireCloture('');
@@ -76,13 +89,9 @@ export default function TechnicienDashboard() {
 
     try {
       await api.post(`/affectations/${affectationId}/escalader`, {
-        motif: motifEscalade
+        motif: motifEscalade,
       });
-      setTickets(prev => prev.map(t => 
-        t.affectation.id === affectationId 
-          ? { ...t, affectation: { ...t.affectation, statut: 'ESCALADE' } } 
-          : t
-      ));
+      setTickets((prev) => prev.map((t) => (t.affectation?.id === affectationId ? { ...t, affectation: { ...t.affectation, statut: 'ESCALADE' } } : t)));
       setIsEscaladeModalOpen(false);
       setSelectedTicket(null);
       setMotifEscalade('');
@@ -101,18 +110,16 @@ export default function TechnicienDashboard() {
     setIsEscaladeModalOpen(true);
   };
 
-  const filteredTickets = tickets.filter(ticket => {
-    const matchFilter = 
-      filter === 'TOUS' || 
-      (filter === 'EN_ATTENTE' && ticket.affectation.statut === 'EN_ATTENTE') ||
-      (filter === 'EN_TRAITEMENT' && ticket.affectation.statut === 'EN_TRAITEMENT') ||
-      (filter === 'ESCALADE' && ticket.affectation.statut === 'ESCALADE') ||
-      (filter === 'CLOTUREE' && ticket.affectation.statut === 'CLOTUREE');
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchFilter =
+      filter === 'TOUS' ||
+      (filter === 'EN_ATTENTE' && ticket.affectation?.statut === 'EN_ATTENTE') ||
+      (filter === 'EN_TRAITEMENT' && ticket.affectation?.statut === 'EN_TRAITEMENT') ||
+      (filter === 'ESCALADE' && ticket.affectation?.statut === 'ESCALADE') ||
+      (filter === 'CLOTUREE' && ticket.affectation?.statut === 'CLOTUREE');
 
-    const matchSearch = 
-      ticket.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.agent.nom.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch =
+      `${ticket.titre} ${ticket.reference} ${ticket.agent?.nom || ''} ${ticket.agent?.prenom || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchFilter && matchSearch;
   });
@@ -121,38 +128,28 @@ export default function TechnicienDashboard() {
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
       <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
         <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
-          <img 
-            src="/logo_sante.png" 
-            alt="Logo Ministère" 
-            className="h-full w-auto object-contain"
-          />
+          <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
         </div>
 
         <div className="text-center px-2 flex-1 min-w-0">
           <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
             Bienvenue sur votre Espace Technicien
           </h1>
-          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">
-            Ministère de la Santé — République du Bénin
-          </p>
+          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
         </div>
 
         <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-          <img 
-            src="/logo_sante.png" 
-            alt="" 
-            className="h-full w-auto object-contain"
-          />
+          <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
         </div>
       </header>
+
+      {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <button
           onClick={() => setFilter('TOUS')}
-          className={`p-5 rounded-2xl border transition-all text-left flex items-center gap-4 cursor-pointer hover:border-[#15aabf] hover:shadow-sm ${
-            filter === 'TOUS'
-              ? 'bg-white border-[#15aabf] ring-2 ring-[#15aabf]/20 shadow-sm'
-              : 'bg-white border-slate-200'
+          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+            filter === 'TOUS' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center shrink-0">
@@ -166,10 +163,8 @@ export default function TechnicienDashboard() {
 
         <button
           onClick={() => setFilter('EN_ATTENTE')}
-          className={`p-5 rounded-2xl border transition-all text-left flex items-center gap-4 cursor-pointer hover:border-[#15aabf] hover:shadow-sm ${
-            filter === 'EN_ATTENTE'
-              ? 'bg-white border-[#15aabf] ring-2 ring-[#15aabf]/20 shadow-sm'
-              : 'bg-white border-slate-200'
+          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+            filter === 'EN_ATTENTE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
@@ -183,10 +178,8 @@ export default function TechnicienDashboard() {
 
         <button
           onClick={() => setFilter('EN_TRAITEMENT')}
-          className={`p-5 rounded-2xl border transition-all text-left flex items-center gap-4 cursor-pointer hover:border-[#15aabf] hover:shadow-sm ${
-            filter === 'EN_TRAITEMENT'
-              ? 'bg-white border-[#15aabf] ring-2 ring-[#15aabf]/20 shadow-sm'
-              : 'bg-white border-slate-200'
+          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+            filter === 'EN_TRAITEMENT' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
@@ -200,10 +193,8 @@ export default function TechnicienDashboard() {
 
         <button
           onClick={() => setFilter('ESCALADE')}
-          className={`p-5 rounded-2xl border transition-all text-left flex items-center gap-4 cursor-pointer hover:border-[#15aabf] hover:shadow-sm ${
-            filter === 'ESCALADE'
-              ? 'bg-white border-[#15aabf] ring-2 ring-[#15aabf]/20 shadow-sm'
-              : 'bg-white border-slate-200'
+          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+            filter === 'ESCALADE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
@@ -217,10 +208,8 @@ export default function TechnicienDashboard() {
 
         <button
           onClick={() => setFilter('CLOTUREE')}
-          className={`p-5 rounded-2xl border transition-all text-left flex items-center gap-4 cursor-pointer hover:border-[#15aabf] hover:shadow-sm ${
-            filter === 'CLOTUREE'
-              ? 'bg-white border-[#15aabf] ring-2 ring-[#15aabf]/20 shadow-sm'
-              : 'bg-white border-slate-200'
+          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+            filter === 'CLOTUREE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
           }`}
         >
           <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
@@ -243,9 +232,7 @@ export default function TechnicienDashboard() {
               {filter === 'ESCALADE' && 'Tickets escaladés'}
               {filter === 'CLOTUREE' && 'Tickets clôturés'}
             </h2>
-            <p className="text-xs text-slate-400 font-medium">
-              Affichage de {filteredTickets.length} demande(s)
-            </p>
+            <p className="text-xs text-slate-400 font-medium">Affichage de {filteredTickets.length} demande(s)</p>
           </div>
 
           <div className="relative max-w-xs w-full">
@@ -261,7 +248,9 @@ export default function TechnicienDashboard() {
         </div>
 
         <div className="overflow-x-auto">
-          {filteredTickets.length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center text-slate-400">Chargement...</div>
+          ) : filteredTickets.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-xs font-medium">Aucun ticket trouvé pour ce filtre.</p>
@@ -281,9 +270,7 @@ export default function TechnicienDashboard() {
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                 {filteredTickets.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">
-                      {ticket.reference}
-                    </td>
+                    <td className="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">{ticket.reference}</td>
                     <td className="py-4 px-6 font-medium text-slate-800 max-w-xs">
                       <p className="line-clamp-1">{ticket.titre}</p>
                       <p className="text-[11px] text-slate-400 line-clamp-1 font-normal">{ticket.description}</p>
@@ -291,29 +278,27 @@ export default function TechnicienDashboard() {
                     <td className="py-4 px-6 whitespace-nowrap">
                       <div className="flex items-center gap-1.5 text-slate-600">
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{ticket.agent.nom} {ticket.agent.prenom}</span>
+                        <span>{ticket.agent?.nom} {ticket.agent?.prenom}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">
-                      <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">
-                        {ticket.categorie.nom}
-                      </span>
+                      <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">{ticket.categorie?.nom}</span>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap">
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                        ticket.affectation.statut === 'EN_TRAITEMENT' ? 'bg-amber-100 text-amber-700' :
-                        ticket.affectation.statut === 'CLOTUREE' ? 'bg-emerald-100 text-emerald-700' :
-                        ticket.affectation.statut === 'ESCALADE' ? 'bg-purple-100 text-purple-700' :
+                        ticket.affectation?.statut === 'EN_TRAITEMENT' ? 'bg-amber-100 text-amber-700' :
+                        ticket.affectation?.statut === 'CLOTUREE' ? 'bg-emerald-100 text-emerald-700' :
+                        ticket.affectation?.statut === 'ESCALADE' ? 'bg-purple-100 text-purple-700' :
                         'bg-blue-100 text-blue-700'
                       }`}>
-                        {ticket.affectation.statut === 'EN_TRAITEMENT' ? 'En cours' :
-                         ticket.affectation.statut === 'CLOTUREE' ? 'Clôturé' :
-                         ticket.affectation.statut === 'ESCALADE' ? 'Escaladé' : 'À démarrer'}
+                        {ticket.affectation?.statut === 'EN_TRAITEMENT' ? 'En cours' :
+                         ticket.affectation?.statut === 'CLOTUREE' ? 'Clôturé' :
+                         ticket.affectation?.statut === 'ESCALADE' ? 'Escaladé' : 'À démarrer'}
                       </span>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap text-right">
                       <div className="inline-flex items-center justify-end gap-2">
-                        {ticket.affectation.statut === 'EN_ATTENTE' && (
+                        {ticket.affectation?.statut === 'EN_ATTENTE' && (
                           <>
                             <button
                               onClick={() => handleDemarrer(ticket.affectation.id)}
@@ -332,7 +317,7 @@ export default function TechnicienDashboard() {
                           </>
                         )}
 
-                        {ticket.affectation.statut === 'EN_TRAITEMENT' && (
+                        {ticket.affectation?.statut === 'EN_TRAITEMENT' && (
                           <>
                             <button
                               onClick={() => openClotureModal(ticket)}
@@ -364,22 +349,15 @@ export default function TechnicienDashboard() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800">
-                Clôturer le ticket #{selectedTicket?.reference}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
+              <h3 className="text-sm font-bold text-slate-800">Clôturer le ticket #{selectedTicket?.reference}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleCloturer} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Rapport de résolution / Commentaire (Optionnel)
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Rapport de résolution / Commentaire (Optionnel)</label>
                 <textarea
                   rows="4"
                   placeholder="Expliquez la solution apportée..."
@@ -390,17 +368,10 @@ export default function TechnicienDashboard() {
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                >
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer">
                   Annuler
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer"
-                >
+                <button type="submit" className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer">
                   Confirmer la clôture
                 </button>
               </div>
@@ -413,22 +384,15 @@ export default function TechnicienDashboard() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800">
-                Escalader le ticket #{selectedTicket?.reference}
-              </h3>
-              <button 
-                onClick={() => setIsEscaladeModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
+              <h3 className="text-sm font-bold text-slate-800">Escalader le ticket #{selectedTicket?.reference}</h3>
+              <button onClick={() => setIsEscaladeModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleEscalader} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Motif de l'escalade
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Motif de l'escalade</label>
                 <textarea
                   rows="4"
                   required
@@ -440,17 +404,10 @@ export default function TechnicienDashboard() {
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEscaladeModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                >
+                <button type="button" onClick={() => setIsEscaladeModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer">
                   Annuler
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors cursor-pointer"
-                >
+                <button type="submit" className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors cursor-pointer">
                   Confirmer l'escalade
                 </button>
               </div>

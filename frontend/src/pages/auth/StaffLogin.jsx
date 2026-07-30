@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Lock, 
-  ShieldCheck, 
   AlertCircle, 
   Loader2 
 } from 'lucide-react';
@@ -15,7 +14,6 @@ export default function StaffLogin() {
 
   const [username, setUsername] = useState('');
   const [motdepasse, setMotdepasse] = useState('');
-  const [typeCompte, setTypeCompte] = useState('TECHNICIEN');
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -27,7 +25,7 @@ export default function StaffLogin() {
 
     try {
       setSubmitting(true);
-      const res = await authService.login(username, motdepasse, typeCompte.toUpperCase());
+      const res = await authService.login(username, motdepasse);
 
       if (res && res.accessToken) {
         loginSuccess({ accessToken: res.accessToken, refreshToken: res.refreshToken, typeCompte: res.typeCompte, profil: res.profil });
@@ -55,6 +53,8 @@ export default function StaffLogin() {
         setErrorMsg('Identifiants incorrects.');
       } else if (status === 403) {
         setErrorMsg('Ce compte n\'est pas encore actif, utilisez le lien reçu par email.');
+      } else if (status === 409) {
+        setErrorMsg('Ce nom d\'utilisateur correspond a plusieurs comptes. Contactez l\'administrateur.');
       } else {
         setErrorMsg('Une erreur s\'est produite lors de la connexion.');
       }
@@ -68,14 +68,12 @@ export default function StaffLogin() {
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-md border-2 border-amber-400">
-              MS
-            </div>
+            <img src="/logo_sante.png" alt="Logo Ministère" className="h-9 sm:h-10 w-auto object-contain" />
             <div>
               <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-wide uppercase">
                 Ministère de la Santé
               </h1>
-              <p className="text-[11px] font-semibold text-cyan-700">
+              <p className="text-[11px] font-semibold" style={{ color: '#15aabf' }}>
                 République du Bénin
               </p>
             </div>
@@ -106,25 +104,6 @@ export default function StaffLogin() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Type de compte
-                </label>
-                <div className="relative">
-                  <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <select
-                    value={typeCompte}
-                    onChange={(e) => setTypeCompte(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all cursor-pointer"
-                  >
-                    <option value="TECHNICIEN">TECHNICIEN</option>
-                    <option value="RESPONSABLE">RESPONSABLE</option>
-                    <option value="POINT_FOCAL">POINT_FOCAL</option>
-                    <option value="ADMIN">ADMIN</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Nom d'utilisateur
                 </label>
                 <div className="relative">
@@ -134,7 +113,7 @@ export default function StaffLogin() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Saisissez votre nom d'utilisateur"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#15aabf] focus:bg-white transition-all"
                     required
                   />
                 </div>
@@ -151,7 +130,7 @@ export default function StaffLogin() {
                     value={motdepasse}
                     onChange={(e) => setMotdepasse(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#15aabf] focus:bg-white transition-all"
                     required
                   />
                 </div>
@@ -160,7 +139,8 @@ export default function StaffLogin() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md shadow-cyan-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                className="w-full py-3 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: '#15aabf' }}
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>Se connecter</span>

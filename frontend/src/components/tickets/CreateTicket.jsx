@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ticket, Layers, FileText, Paperclip, Send, ArrowLeft, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import api from '../../services/api';
 
 export default function CreerTicket() {
   const navigate = useNavigate();
@@ -11,16 +12,24 @@ export default function CreerTicket() {
   const [file, setFile] = useState(null);
 
   const [loading, setLoading] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    setCategories([
-      { id: 1, nom: 'Matériel' },
-      { id: 2, nom: 'Réseau' },
-      { id: 3, nom: 'Logiciel' },
-      { id: 4, nom: 'Accès & Sécurité' }
-    ]);
+    const fetchCategories = async () => {
+      try {
+        const res = await api.get('/categories');
+        const data = res.data?.data || res.data || [];
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError('Impossible de charger les catégories depuis le serveur.');
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   const handleFileChange = (e) => {
@@ -34,7 +43,7 @@ export default function CreerTicket() {
     setFile(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -47,20 +56,24 @@ export default function CreerTicket() {
       formData.append('pieceJointe', file);
     }
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await api.post('/tickets', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       setSuccess(true);
-
       setTimeout(() => {
         navigate('/utilisateur/dashboard');
-      }, 1500);
-    }, 800);
+      }, 1200);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la création du ticket.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[calc(100vh-50px)] bg-slate-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
       <div className="bg-white w-full max-w-2xl rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
-        
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-cyan-50 text-[#15aabf] rounded-xl flex items-center justify-center">
@@ -94,8 +107,6 @@ export default function CreerTicket() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
-          
-          {/* 1. Titre (Objet) */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1.5">
               Titre du ticket <span className="text-rose-500">*</span>
@@ -113,7 +124,6 @@ export default function CreerTicket() {
             </div>
           </div>
 
-          {/* 2. Catégorie */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1.5">
               Catégorie de la panne <span className="text-rose-500">*</span>
@@ -126,7 +136,7 @@ export default function CreerTicket() {
                 onChange={(e) => setCategorieId(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#15aabf] font-medium text-slate-800 appearance-none cursor-pointer"
               >
-                <option value="">Sélectionner une catégorie...</option>
+                <option value="">{loadingCategories ? 'Chargement des catégories...' : 'Sélectionner une catégorie...'}</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.nom}
@@ -136,7 +146,6 @@ export default function CreerTicket() {
             </div>
           </div>
 
-          {/* 3. Description */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1.5">
               Description détaillée <span className="text-rose-500">*</span>
@@ -199,7 +208,7 @@ export default function CreerTicket() {
 
             <button
               type="submit"
-              disabled={loading || success}
+              disabled={loading || success || loadingCategories}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#15aabf] hover:opacity-90 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50"
             >
               {loading ? (
@@ -213,7 +222,6 @@ export default function CreerTicket() {
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

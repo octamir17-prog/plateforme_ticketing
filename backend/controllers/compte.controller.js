@@ -51,6 +51,7 @@ async function listerEmplacements(req, res) {
     .map((emplacement) => ({
       id: emplacement.id,
       username: emplacement.username,
+      role,
       statut: statutEmplacement(emplacement),
       structure: role === 'TECHNICIEN' ? emplacement.responsable.structure : emplacement.structure,
       agentMatricule: emplacement.agentMatricule,
@@ -104,10 +105,40 @@ async function creerEmplacement(req, res) {
     });
   }
 
-  const techniciensExistants = await prisma.technicien.count({ where: { responsableId: responsable.id } });
+  const techniciens = await prisma.technicien.findMany({
+    where: { responsableId: responsable.id },
+    select: { username: true },
+  });
+
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^${escapeRegExp(codeStructure)}-TEC(\\d+)$`, 'i');
+  const usedIndices = new Set();
+
+  techniciens.forEach(({ username }) => {
+    const match = username.match(pattern);
+    if (match) {
+      usedIndices.add(Number(match[1]));
+    }
+  });
+
+  let nextIndex = 1;
+  while (usedIndices.has(nextIndex)) {
+    nextIndex += 1;
+  }
+
+  const username = `${codeStructure}-TEC${nextIndex}`;
+  const existing = await prisma.technicien.findUnique({ where: { username } });
+
+  if (existing) {
+    return res.status(409).json({
+      success: false,
+      message: `Un technicien avec le nom ${username} existe deja.`,
+      errors: [],
+    });
+  }
 
   const emplacement = await prisma.technicien.create({
-    data: { username: `${codeStructure}-TEC${techniciensExistants + 1}`, responsableId: responsable.id },
+    data: { username, responsableId: responsable.id },
   });
 
   return res.status(201).json({ success: true, message: 'Emplacement cree.', data: emplacement });

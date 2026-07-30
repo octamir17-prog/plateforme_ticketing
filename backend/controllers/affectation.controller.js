@@ -298,14 +298,6 @@ async function escalader(req, res) {
     return res.status(409).json({ success: false, message: 'Ce ticket est deja cloture.', errors: [] });
   }
 
-  if (aEteRecuParEscalade(affectation)) {
-    return res.status(409).json({
-      success: false,
-      message: 'Cette structure a recu ce ticket par escalade, elle ne peut pas l\'escalader plus haut.',
-      errors: [],
-    });
-  }
-
   const structureCible = await prisma.structure.findUnique({
     where: { codeStructure: codeStructureCible },
     include: { niveau: true },

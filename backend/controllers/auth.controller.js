@@ -10,16 +10,13 @@ function genererCodeOtp() {
 }
 
 async function verifierAgent(req, res) {
-  const { matricule, numeroTelephone, aCompte } = req.body;
+  const { matricule, numeroTelephone } = req.body;
 
-  if (!matricule || !numeroTelephone || typeof aCompte !== 'boolean') {
-    return res.status(400).json({ success: false, message: 'Matricule, numero de telephone et aCompte sont obligatoires.', errors: [] });
+  if (!matricule || !numeroTelephone) {
+    return res.status(400).json({ success: false, message: 'Matricule et numero de telephone sont obligatoires.', errors: [] });
   }
 
-  const agent = await prisma.agent.findUnique({
-    where: { matricule: Number(matricule) },
-    include: { utilisateur: true },
-  });
+  const agent = await prisma.agent.findUnique({ where: { matricule: Number(matricule) } });
 
   if (!agent || agent.numero !== numeroTelephone) {
     return res.status(404).json({ success: false, message: 'Matricule ou numero de telephone incorrect.', errors: [] });
@@ -27,26 +24,6 @@ async function verifierAgent(req, res) {
 
   if (!agent.actif) {
     return res.status(403).json({ success: false, message: 'Agent inactif.', errors: [] });
-  }
-
-  if (aCompte === true) {
-    if (!agent.utilisateur) {
-      return res.status(404).json({
-        success: false,
-        message: 'Aucun compte utilisateur pour cet agent. Choisissez "je n\'ai pas de compte".',
-        errors: [],
-      });
-    }
-
-    return res.status(200).json({ success: true, message: 'Compte trouve.', data: { loginAutorise: true } });
-  }
-
-  if (agent.utilisateur) {
-    return res.status(409).json({
-      success: false,
-      message: 'Un compte existe deja pour cet agent. Choisissez "j\'ai deja un compte".',
-      errors: [],
-    });
   }
 
   const code = genererCodeOtp();
@@ -64,7 +41,6 @@ async function verifierAgent(req, res) {
 }
 
 async function renvoyerCode(req, res) {
-  req.body.aCompte = false;
   return verifierAgent(req, res);
 }
 
@@ -143,6 +119,12 @@ async function finaliserInscription(req, res) {
 
   if (usernameExistant) {
     return res.status(409).json({ success: false, message: 'Ce nom d\'utilisateur est deja pris.', errors: [] });
+  }
+
+  const compteExistantPourAgent = await prisma.utilisateur.findUnique({ where: { agentMatricule: agent.matricule } });
+
+  if (compteExistantPourAgent) {
+    return res.status(409).json({ success: false, message: 'Un compte existe deja pour cet agent.', errors: [] });
   }
 
   const motdepasseHache = await bcrypt.hash(motdepasse, 10);
@@ -276,20 +258,52 @@ async function trouverCompteLogin(typeCompte, username) {
   return prisma[TABLES_PAR_TYPE[typeCompte]].findUnique({ where: { username } });
 }
 
+async function trouverCompteParUsername(username) {
+  const comptes = [];
+
+  for (const typeCompte of Object.keys(TABLES_PAR_TYPE)) {
+    const compte = typeCompte === 'TECHNICIEN'
+      ? await prisma.technicien.findUnique({ where: { username }, include: { responsable: true } })
+      : await prisma[TABLES_PAR_TYPE[typeCompte]].findUnique({ where: { username } });
+
+    if (compte) {
+      comptes.push({ typeCompte, compte });
+    }
+  }
+
+  return comptes;
+}
+
 async function login(req, res) {
   const { username, motdepasse, typeCompte } = req.body;
 
-  if (!username || !motdepasse || !typeCompte || !TABLES_PAR_TYPE[typeCompte]) {
+  if (!username || !motdepasse) {
     return res.status(400).json({ success: false, message: 'Champs invalides.', errors: [] });
   }
 
-  const compte = await trouverCompteLogin(typeCompte, username);
+  let resolvedTypeCompte = typeCompte;
+  let compte;
+
+  if (typeCompte && TABLES_PAR_TYPE[typeCompte]) {
+    compte = await trouverCompteLogin(typeCompte, username);
+  } else {
+    const comptes = await trouverCompteParUsername(username);
+
+    if (comptes.length > 1) {
+      return res.status(409).json({ success: false, message: 'Ce nom d\'utilisateur correspond a plusieurs comptes. Contactez l\'administrateur.', errors: [] });
+    }
+
+    if (comptes.length === 1) {
+      resolvedTypeCompte = comptes[0].typeCompte;
+      compte = comptes[0].compte;
+    }
+  }
 
   if (!compte) {
     return res.status(401).json({ success: false, message: 'Identifiants incorrects.', errors: [] });
   }
 
-  if (typeCompte !== 'ADMIN' && !compte.actif) {
+  if (resolvedTypeCompte !== 'ADMIN' && !compte.actif) {
     return res.status(403).json({ success: false, message: 'Compte desactive.', errors: [] });
   }
 
@@ -307,14 +321,14 @@ async function login(req, res) {
     return res.status(401).json({ success: false, message: 'Identifiants incorrects.', errors: [] });
   }
 
-  const accessToken = genererAccessToken(compte, typeCompte);
-  const { token: refreshToken, jti } = genererRefreshToken(compte, typeCompte);
+  const accessToken = genererAccessToken(compte, resolvedTypeCompte);
+  const { token: refreshToken, jti } = genererRefreshToken(compte, resolvedTypeCompte);
 
   const dateExpiration = new Date();
   dateExpiration.setDate(dateExpiration.getDate() + 7);
 
   await prisma.sessionToken.create({
-    data: { jti, typeCompte, compteId: compte.id, dateExpiration },
+    data: { jti, typeCompte: resolvedTypeCompte, compteId: compte.id, dateExpiration },
   });
 
   const { motdepasse: _, responsable, ...compteSansMotDePasse } = compte;
@@ -322,7 +336,7 @@ async function login(req, res) {
   return res.status(200).json({
     success: true,
     message: 'Connexion reussie.',
-    data: { accessToken, refreshToken, profil: compteSansMotDePasse, typeCompte },
+    data: { accessToken, refreshToken, profil: compteSansMotDePasse, typeCompte: resolvedTypeCompte },
   });
 }
 
@@ -367,6 +381,7 @@ async function logout(req, res) {
       const payload = verifierRefreshToken(refreshToken);
       await prisma.sessionToken.updateMany({ where: { jti: payload.jti }, data: { revoque: true } });
     } catch (erreur) {
+      // token deja invalide, rien a faire
     }
   }
 

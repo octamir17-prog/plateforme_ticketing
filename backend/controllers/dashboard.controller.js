@@ -62,14 +62,19 @@ async function responsable(req, res) {
 }
 
 async function admin(req, res) {
-  const [agents, structures, ticketsTotal, ticketsClotures] = await Promise.all([
+  const [agents, structures, ticketsTotal, ticketsSoumis, ticketsEnCours, ticketsClotures] = await Promise.all([
     prisma.agent.count(),
     prisma.structure.count(),
     prisma.ticket.count(),
+    prisma.ticket.count({ where: { statut: 'SOUMIS' } }),
+    prisma.ticket.count({ where: { statut: { in: ['AFFECTE', 'EN_COURS'] } } }),
     prisma.ticket.count({ where: { statut: 'CLOTURE' } }),
   ]);
 
-  return res.status(200).json({ success: true, data: { agents, structures, ticketsTotal, ticketsClotures } });
+  return res.status(200).json({
+    success: true,
+    data: { agents, structures, ticketsTotal, ticketsSoumis, ticketsEnCours, ticketsClotures },
+  });
 }
 
 module.exports = { utilisateur, technicien, responsable, admin };

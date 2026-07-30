@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Building2, 
@@ -17,10 +16,19 @@ import {
   MapPin,
   Building,
   Sliders,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronDown
 } from 'lucide-react';
 import api from '../../services/api';
 
+// Pour changer une icone : remplace juste le composant "icon" ci-dessous
+// (garde un import lucide-react correspondant en haut du fichier).
+const STATS_CONFIG = [
+  { key: 'agents', label: 'Agents enregistrés', icon: Users, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600' },
+  { key: 'structures', label: 'Structures actives', icon: Building2, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
+  { key: 'ticketsTotal', label: 'Total Tickets Système', icon: Ticket, iconBg: 'bg-amber-50', iconColor: 'text-amber-500' },
+  { key: 'ticketsClotures', label: 'Tickets Clôturés', icon: CheckCircle2, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+];
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -31,13 +39,26 @@ export default function AdminDashboard() {
   const [types, setTypes] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [roleFilter, setRoleFilter] = useState('');
-  const [structureFilter, setStructureFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('RESPONSABLE');
+  const [structureFilterCode, setStructureFilterCode] = useState('');
+  const [structureSearchFilter, setStructureSearchFilter] = useState('');
+  const [showStructureFilterDropdown, setShowStructureFilterDropdown] = useState(false);
+  const [structureSearch, setStructureSearch] = useState('');
+  const [showStructureDropdown, setShowStructureDropdown] = useState(false);
+  const [structureSearchEmplacement, setStructureSearchEmplacement] = useState('');
+  const [showStructureDropdownEmplacement, setShowStructureDropdownEmplacement] = useState(false);
   const [statutFilter, setStatutFilter] = useState('');
+
+  const filterStructureRef = useRef(null);
+  const structureSearchRef = useRef(null);
+  const emplacementStructureRef = useRef(null);
 
   const [showNouvelEmplacementModal, setShowNouvelEmplacementModal] = useState(false);
   const [showNouvelleStructureModal, setShowNouvelleStructureModal] = useState(false);
+  const [showModifierStructureModal, setShowModifierStructureModal] = useState(false);
+  const [structureEnEdition, setStructureEnEdition] = useState(null);
   const [showNouveauTypeModal, setShowNouveauTypeModal] = useState(false);
   const [showNouveauNiveauModal, setShowNouveauNiveauModal] = useState(false);
   const [showAttributionModal, setShowAttributionModal] = useState(false);
@@ -52,11 +73,21 @@ export default function AdminDashboard() {
     niveauId: '',
     nomResponsable: '',
     prenomResponsable: '',
-    emailResponsable: '',
-    telephoneResponsable: ''
+    mailResponsable: '',
+    numResponsable: ''
   });
-  const [newType, setNewType] = useState({ libelle: '', description: '' });
-  const [newNiveau, setNewNiveau] = useState({ libelle: '', rang: 1 });
+  const [editStructure, setEditStructure] = useState({
+    codeStructure: '',
+    designation: '',
+    typeId: '',
+    niveauId: '',
+    nomResponsable: '',
+    prenomResponsable: '',
+    mailResponsable: '',
+    numResponsable: ''
+  });
+  const [newType, setNewType] = useState({ libelle: '' });
+  const [newNiveau, setNewNiveau] = useState({ libelle: '', ordre: 1 });
   const [attributionForm, setAttributionForm] = useState({ agentMatricule: '', agentNom: '', agentStructure: '' });
 
   const [importFile, setImportFile] = useState(null);
@@ -71,61 +102,180 @@ export default function AdminDashboard() {
     if (activeTab === 'emplacements') {
       fetchEmplacements();
     }
-  }, [activeTab, roleFilter, structureFilter, statutFilter]);
+  }, [activeTab, roleFilter, structureFilterCode, statutFilter]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterStructureRef.current && !filterStructureRef.current.contains(event.target)) {
+        setShowStructureFilterDropdown(false);
+      }
+      if (structureSearchRef.current && !structureSearchRef.current.contains(event.target)) {
+        setShowStructureDropdown(false);
+      }
+      if (emplacementStructureRef.current && !emplacementStructureRef.current.contains(event.target)) {
+        setShowStructureDropdownEmplacement(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredStructures = structures.filter((s) => {
+    const search = structureSearch.toLowerCase();
+    return (
+      s.codeStructure?.toLowerCase().includes(search) ||
+      s.designation?.toLowerCase().includes(search)
+    );
+  });
+
+  const filteredStructuresFilter = structures.filter((s) => {
+    const search = structureSearchFilter.toLowerCase();
+    return (
+      s.codeStructure?.toLowerCase().includes(search) ||
+      s.designation?.toLowerCase().includes(search)
+    );
+  });
+
+  const filteredStructuresEmplacement = structures.filter((s) => {
+    const search = structureSearchEmplacement.toLowerCase();
+    return (
+      s.codeStructure?.toLowerCase().includes(search) ||
+      s.designation?.toLowerCase().includes(search)
+    );
+  });
 
   const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const [resDashboard, resStructures, resTypes, resNiveaux] = await Promise.all([
-        api.get('/dashboard/admin'),
-        api.get('/structures'),
-        api.get('/types'),
-        api.get('/niveaux')
-      ]);
-      if (resDashboard.data) setStats(resDashboard.data.data || resDashboard.data);
-      if (resStructures.data) setStructures(resStructures.data.data || resStructures.data);
-      if (resTypes.data) setTypes(resTypes.data.data || resTypes.data);
-      if (resNiveaux.data) setNiveaux(resNiveaux.data.data || resNiveaux.data);
-    } catch (err) {
-      console.log('Utilisation des données de démo');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    setError('');
+
+    const [resDashboard, resStructures, resTypes, resNiveaux] = await Promise.allSettled([
+      api.get('/dashboard/admin'),
+      api.get('/structures'),
+      api.get('/types'),
+      api.get('/niveaux')
+    ]);
+
+    const echecs = [];
+
+    if (resDashboard.status === 'fulfilled') {
+      setStats(resDashboard.value.data?.data || resDashboard.value.data || { agents: 0, structures: 0, ticketsTotal: 0, ticketsClotures: 0 });
+    } else {
+      echecs.push('statistiques');
     }
+
+    if (resStructures.status === 'fulfilled') {
+      setStructures(resStructures.value.data?.data || resStructures.value.data || []);
+    } else {
+      echecs.push('structures');
+    }
+
+    if (resTypes.status === 'fulfilled') {
+      setTypes(resTypes.value.data?.data || resTypes.value.data || []);
+    } else {
+      echecs.push('types');
+    }
+
+    if (resNiveaux.status === 'fulfilled') {
+      setNiveaux(resNiveaux.value.data?.data || resNiveaux.value.data || []);
+    } else {
+      echecs.push('niveaux');
+    }
+
+    if (echecs.length > 0) {
+      console.error('Echec de chargement :', { resDashboard, resStructures, resTypes, resNiveaux });
+      setError(`Impossible de charger : ${echecs.join(', ')}. Voir la console pour le detail.`);
+    }
+
+    setLoading(false);
   };
 
   const fetchEmplacements = async () => {
+    if (!roleFilter) {
+      setEmplacements([]);
+      return;
+    }
+
     try {
       const params = new URLSearchParams();
-      if (roleFilter) params.append('role', roleFilter);
-      if (structureFilter) params.append('codeStructure', structureFilter);
+      params.append('role', roleFilter);
+      if (structureFilterCode) params.append('codeStructure', structureFilterCode);
       if (statutFilter) params.append('statut', statutFilter);
 
       const res = await api.get(`/comptes/emplacements?${params.toString()}`);
       if (res.data) setEmplacements(res.data.data || res.data);
     } catch (err) {
+      console.error('Erreur fetch emplacements :', err);
       setEmplacements([]);
     }
   };
 
   const handleCreateEmplacement = async (e) => {
     e.preventDefault();
+
+    if (!newEmplacement.role) {
+      alert('Veuillez sélectionner un rôle.');
+      return;
+    }
+
+    if (!newEmplacement.codeStructure) {
+      alert('Veuillez sélectionner une structure.');
+      return;
+    }
+
     try {
       await api.post('/comptes/emplacements', newEmplacement);
       setShowNouvelEmplacementModal(false);
       fetchEmplacements();
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la création de l\'emplacement');
+      console.error('Erreur création emplacement :', err);
+      const message = err.response?.data?.message || err.message || 'Erreur lors de la création de l\'emplacement';
+      alert(message);
     }
   };
 
   const handleCreateStructure = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/structures', newStructure);
+      const payload = {
+        ...newStructure,
+        mailResponsable: newStructure.mailResponsable || newStructure.emailResponsable,
+        numResponsable: newStructure.numResponsable || newStructure.telephoneResponsable,
+      };
+      await api.post('/structures', payload);
       setShowNouvelleStructureModal(false);
       fetchInitialData();
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de la création de la structure');
+    }
+  };
+
+  const ouvrirModificationStructure = (structure) => {
+    setStructureEnEdition(structure);
+    setEditStructure({
+      codeStructure: structure.codeStructure || '',
+      designation: structure.designation || '',
+      typeId: structure.type?.id || structure.typeId || '',
+      niveauId: structure.niveau?.id || structure.niveauId || '',
+      nomResponsable: structure.nomResponsable || '',
+      prenomResponsable: structure.prenomResponsable || '',
+      mailResponsable: structure.mailResponsable || structure.emailResponsable || '',
+      numResponsable: structure.numResponsable || structure.telephoneResponsable || '',
+    });
+    setShowModifierStructureModal(true);
+  };
+
+  const handleUpdateStructure = async (e) => {
+    e.preventDefault();
+    if (!structureEnEdition) return;
+
+    try {
+      await api.put(`/structures/${structureEnEdition.id}`, editStructure);
+      setShowModifierStructureModal(false);
+      setStructureEnEdition(null);
+      fetchInitialData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la modification de la structure');
     }
   };
 
@@ -265,7 +415,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
       
-      {/* En-tête Global avec Logo et Message de bienvenue */}
+      
       <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
         <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
           <img 
@@ -277,7 +427,7 @@ export default function AdminDashboard() {
 
         <div className="text-center px-2 flex-1 min-w-0">
           <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
-            Bienvenue sur votre Espace Technicien
+            Bienvenue sur votre Espace Administrateur  
           </h1>
           <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">
             Ministère de la Santé — République du Bénin
@@ -292,6 +442,12 @@ export default function AdminDashboard() {
           />
         </div>
       </header>
+
+      {error && (
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>
+        </div>
+      )}
 
       {/* Disposition Principale : Menu et Contenu principal */}
       <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-6 p-4 sm:p-6 lg:p-8">
@@ -336,45 +492,20 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-cyan-50 rounded-xl">
-                    <Users className="w-6 h-6 text-cyan-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.agents || 0}</p>
-                    <p className="text-xs text-slate-500 font-medium">Agents enregistrés</p>
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-purple-50 rounded-xl">
-                    <Building2 className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.structures || structures.length}</p>
-                    <p className="text-xs text-slate-500 font-medium">Structures actives</p>
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-amber-50 rounded-xl">
-                    <Ticket className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.ticketsTotal || 0}</p>
-                    <p className="text-xs text-slate-500 font-medium">Total Tickets Système</p>
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-emerald-50 rounded-xl">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.ticketsClotures || 0}</p>
-                    <p className="text-xs text-slate-500 font-medium">Tickets Clôturés</p>
-                  </div>
-                </div>
+                {STATS_CONFIG.map((c) => {
+                  const Icon = c.icon;
+                  return (
+                    <div key={c.key} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className={`p-3 ${c.iconBg} rounded-xl`}>
+                        <Icon className={`w-6 h-6 ${c.iconColor}`} />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-slate-800">{stats[c.key] || 0}</p>
+                        <p className="text-xs text-slate-500 font-medium">{c.label}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -414,20 +545,51 @@ export default function AdminDashboard() {
                     </select>
                   </div>
 
-                  <div>
+                  <div className="relative" ref={filterStructureRef}>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Filtrer par Structure</label>
-                    <select
-                      value={structureFilter}
-                      onChange={(e) => setStructureFilter(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-                    >
-                      <option value="">Structures</option>
-                      {structures.map((s) => (
-                        <option key={s.id || s.codeStructure} value={s.codeStructure}>
-                          {s.codeStructure} - {s.designation}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={structureSearchFilter}
+                        onChange={(e) => {
+                          setStructureSearchFilter(e.target.value);
+                          setStructureFilterCode('');
+                        }}
+                        onFocus={() => setShowStructureFilterDropdown(true)}
+                        placeholder="Code ou désignation"
+                        className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowStructureFilterDropdown((prev) => !prev)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {showStructureFilterDropdown && (
+                      <div className="absolute z-20 mt-2 w-full max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        {filteredStructuresFilter.length > 0 ? (
+                          filteredStructuresFilter.map((s) => (
+                            <button
+                              key={s.id || s.codeStructure}
+                              type="button"
+                              onClick={() => {
+                                setStructureFilterCode(s.codeStructure);
+                                setStructureSearchFilter(`${s.codeStructure} - ${s.designation}`);
+                                setShowStructureFilterDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-100 text-slate-700 text-xs"
+                            >
+                              <div className="font-semibold">{s.codeStructure}</div>
+                              <div className="text-[11px] text-slate-500">{s.designation}</div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-[11px] text-slate-500">Aucune structure trouvée.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -517,19 +679,64 @@ export default function AdminDashboard() {
           {/* ---------------- ONGLET 3 : STRUCTURES ---------------- */}
           {activeTab === 'structures' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-wrap gap-4">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Structures Régionales et Locales</h2>
-                  <p className="text-xs text-slate-500 mt-1">Liste des structures et responsables enregistrés.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowNouvelleStructureModal(true)}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Nouvelle structure</span>
-                </button>
+<div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Structures Régionales et Locales</h2>
+                      <p className="text-xs text-slate-500 mt-1">Liste des structures et responsables enregistrés.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNouvelleStructureModal(true)}
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Nouvelle structure</span>
+                    </button>
+                  </div>
+
+                  <div className="relative" ref={structureSearchRef}>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Rechercher une structure</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={structureSearch}
+                        onChange={(e) => setStructureSearch(e.target.value)}
+                        onFocus={() => setShowStructureDropdown(true)}
+                        placeholder="Code ou désignation"
+                        className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowStructureDropdown((prev) => !prev)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {showStructureDropdown && (
+                      <div className="absolute z-20 mt-2 w-full max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        {filteredStructures.length > 0 ? (
+                          filteredStructures.map((s) => (
+                            <button
+                              key={s.id || s.codeStructure}
+                              type="button"
+                              onClick={() => {
+                                setStructureSearch(`${s.codeStructure} - ${s.designation}`);
+                                setShowStructureDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-slate-100 text-slate-700 text-xs"
+                            >
+                              <div className="font-semibold">{s.codeStructure}</div>
+                              <div className="text-[11px] text-slate-500">{s.designation}</div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-[11px] text-slate-500">Aucune structure trouvée.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
               </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -546,7 +753,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {structures.map((s) => (
+                    {filteredStructures.map((s) => (
                       <tr key={s.id || s.codeStructure} className="hover:bg-slate-50">
                         <td className="py-4 px-6 font-bold text-slate-900">{s.codeStructure}</td>
                         <td className="py-4 px-6 font-semibold">{s.designation}</td>
@@ -560,7 +767,7 @@ export default function AdminDashboard() {
                           <div className="text-[11px] text-slate-400">{s.telephoneResponsable || ''}</div>
                         </td>
                         <td className="py-4 px-6 text-right">
-                          <button type="button" className="text-cyan-600 hover:underline font-semibold cursor-pointer">
+                          <button type="button" onClick={() => ouvrirModificationStructure(s)} className="text-cyan-600 hover:underline font-semibold cursor-pointer">
                             Modifier
                           </button>
                         </td>
@@ -596,7 +803,6 @@ export default function AdminDashboard() {
                     <div key={t.id || t.libelle} className="py-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-semibold text-slate-800">{t.libelle}</p>
-                        <p className="text-[11px] text-slate-500">{t.description || 'Aucune description'}</p>
                       </div>
                     </div>
                   ))}
@@ -624,7 +830,7 @@ export default function AdminDashboard() {
                     <div key={n.id || n.libelle} className="py-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-semibold text-slate-800">{n.libelle}</p>
-                        <p className="text-[11px] text-slate-500">Rang hiérarchique : {n.rang || 'N/A'}</p>
+                        <p className="text-[11px] text-slate-500">Rang hiérarchique : {n.ordre ?? 'N/A'}</p>
                       </div>
                     </div>
                   ))}
@@ -799,8 +1005,8 @@ export default function AdminDashboard() {
                     <input
                       type="email"
                       placeholder="email@domaine.com"
-                      value={newStructure.emailResponsable}
-                      onChange={(e) => setNewStructure({ ...newStructure, emailResponsable: e.target.value })}
+                      value={newStructure.mailResponsable}
+                      onChange={(e) => setNewStructure({ ...newStructure, mailResponsable: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
@@ -809,8 +1015,8 @@ export default function AdminDashboard() {
                     <input
                       type="tel"
                       placeholder="+229..."
-                      value={newStructure.telephoneResponsable}
-                      onChange={(e) => setNewStructure({ ...newStructure, telephoneResponsable: e.target.value })}
+                      value={newStructure.numResponsable}
+                      onChange={(e) => setNewStructure({ ...newStructure, numResponsable: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>
@@ -837,6 +1043,134 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {showModifierStructureModal && structureEnEdition && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-2xl p-6 space-y-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Modifier la structure</h3>
+              <p className="text-xs text-slate-500 mt-1">{structureEnEdition.codeStructure} — modifiez les champs nécessaires.</p>
+            </div>
+
+            <form onSubmit={handleUpdateStructure} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1 font-medium">Code structure</label>
+                  <input
+                    type="text"
+                    value={editStructure.codeStructure}
+                    onChange={(e) => setEditStructure({ ...editStructure, codeStructure: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1 font-medium">Désignation</label>
+                  <input
+                    type="text"
+                    value={editStructure.designation}
+                    onChange={(e) => setEditStructure({ ...editStructure, designation: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1 font-medium">Type de structure</label>
+                  <select
+                    value={editStructure.typeId}
+                    onChange={(e) => setEditStructure({ ...editStructure, typeId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
+                    required
+                  >
+                    <option value="">Sélectionner un type</option>
+                    {types.map((t) => (
+                      <option key={t.id} value={t.id}>{t.libelle}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1 font-medium">Niveau hiérarchique</label>
+                  <select
+                    value={editStructure.niveauId}
+                    onChange={(e) => setEditStructure({ ...editStructure, niveauId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
+                    required
+                  >
+                    <option value="">Sélectionner un niveau</option>
+                    {niveaux.map((n) => (
+                      <option key={n.id} value={n.id}>{n.libelle}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-700 mb-3">Informations du responsable</p>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 font-medium">Nom responsable</label>
+                    <input
+                      type="text"
+                      value={editStructure.nomResponsable}
+                      onChange={(e) => setEditStructure({ ...editStructure, nomResponsable: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 font-medium">Prénom responsable</label>
+                    <input
+                      type="text"
+                      value={editStructure.prenomResponsable}
+                      onChange={(e) => setEditStructure({ ...editStructure, prenomResponsable: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 font-medium">Email responsable</label>
+                    <input
+                      type="email"
+                      value={editStructure.mailResponsable}
+                      onChange={(e) => setEditStructure({ ...editStructure, mailResponsable: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 font-medium">Numéro téléphone</label>
+                    <input
+                      type="tel"
+                      value={editStructure.numResponsable}
+                      onChange={(e) => setEditStructure({ ...editStructure, numResponsable: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setShowModifierStructureModal(false); setStructureEnEdition(null); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Enregistrer les modifications
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showNouveauTypeModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl p-6 space-y-6 shadow-xl">
@@ -854,16 +1188,6 @@ export default function AdminDashboard() {
                   onChange={(e) => setNewType({ ...newType, libelle: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-600 mb-1 font-medium">Description</label>
-                <textarea
-                  placeholder="Description du type de structure"
-                  value={newType.description}
-                  onChange={(e) => setNewType({ ...newType, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 h-20"
                 />
               </div>
 
@@ -912,8 +1236,8 @@ export default function AdminDashboard() {
                 <input
                   type="number"
                   placeholder="1, 2, 3..."
-                  value={newNiveau.rang}
-                  onChange={(e) => setNewNiveau({ ...newNiveau, rang: parseInt(e.target.value) })}
+                  value={newNiveau.ordre}
+                  onChange={(e) => setNewNiveau({ ...newNiveau, ordre: parseInt(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   required
                 />
@@ -963,21 +1287,52 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              <div>
+              <div className="relative" ref={emplacementStructureRef}>
                 <label className="block text-xs text-slate-600 mb-1 font-medium">Structure</label>
-                <select
-                  value={newEmplacement.codeStructure}
-                  onChange={(e) => setNewEmplacement({ ...newEmplacement, codeStructure: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-                  required
-                >
-                  <option value="">Sélectionner une structure</option>
-                  {structures.map((s) => (
-                    <option key={s.id || s.codeStructure} value={s.codeStructure}>
-                      {s.codeStructure} - {s.designation}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={structureSearchEmplacement}
+                    onChange={(e) => {
+                      setStructureSearchEmplacement(e.target.value);
+                      setNewEmplacement({ ...newEmplacement, codeStructure: '' });
+                    }}
+                    onFocus={() => setShowStructureDropdownEmplacement(true)}
+                    placeholder="Rechercher une structure"
+                    className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStructureDropdownEmplacement((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                {showStructureDropdownEmplacement && (
+                  <div className="absolute z-20 mt-2 w-full max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                    {filteredStructuresEmplacement.length > 0 ? (
+                      filteredStructuresEmplacement.map((s) => (
+                        <button
+                          key={s.id || s.codeStructure}
+                          type="button"
+                          onClick={() => {
+                            setNewEmplacement({ ...newEmplacement, codeStructure: s.codeStructure });
+                            setStructureSearchEmplacement(`${s.codeStructure} - ${s.designation}`);
+                            setShowStructureDropdownEmplacement(false);
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-100 text-slate-700 text-xs"
+                        >
+                          <div className="font-semibold">{s.codeStructure}</div>
+                          <div className="text-[11px] text-slate-500">{s.designation}</div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-[11px] text-slate-500">Aucune structure trouvée.</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">

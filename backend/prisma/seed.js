@@ -70,15 +70,6 @@ const agentsTest = [
   { matricule: 1012, nom: 'AHOUANSOU', prenom: 'Delphine', sexe: 'F', numero: '97000012', email: 'delphine.ahouansou@sante.bj', codeStructure: 'HZ' },
 ];
 
-const comptesTestAActiver = [
-  { role: 'RESPONSABLE', username: 'CSA-RES1', agentMatricule: 1002, nouveauUsername: 'responsable.csa' },
-  { role: 'TECHNICIEN', username: 'CSA-TEC1', agentMatricule: 1003, nouveauUsername: 'technicien.csa1' },
-  { role: 'TECHNICIEN', username: 'CSA-TEC2', agentMatricule: 1004, nouveauUsername: 'technicien.csa2' },
-  { role: 'POINT_FOCAL', username: 'CSA-PF1', agentMatricule: 1005, nouveauUsername: 'pf.csa' },
-  { role: 'RESPONSABLE', username: 'DSI-RES1', agentMatricule: 1006, nouveauUsername: 'responsable.dsi' },
-  { role: 'TECHNICIEN', username: 'DSI-TEC1', agentMatricule: 1007, nouveauUsername: 'technicien.dsi' },
-  { role: 'POINT_FOCAL', username: 'DSI-PF1', agentMatricule: 1008, nouveauUsername: 'pf.dsi' },
-];
 
 function genererMotDePasseAleatoire() {
   return crypto.randomBytes(12).toString('base64url');
@@ -226,57 +217,6 @@ function tableDuRole(role) {
   return prisma.pointFocal;
 }
 
-async function activerComptesTest() {
-  const motDePasse = process.env.TEST_PASSWORD;
-
-  if (!motDePasse) {
-    console.log('TEST_PASSWORD absent : aucun compte de test active.');
-    return [];
-  }
-
-  const motDePasseHache = await bcrypt.hash(motDePasse, 10);
-  const comptesActives = [];
-
-  for (const compte of comptesTestAActiver) {
-    const table = tableDuRole(compte.role);
-    const agent = await prisma.agent.findUnique({ where: { matricule: compte.agentMatricule } });
-
-    const donnees = {
-      username: compte.nouveauUsername,
-      motdepasse: motDePasseHache,
-      telephone: agent.numero,
-      agentMatricule: agent.matricule,
-    };
-
-    if (compte.role === 'POINT_FOCAL') {
-      donnees.nom = agent.nom;
-      donnees.prenom = agent.prenom;
-    }
-
-    await table.update({
-      where: { username: compte.username },
-      data: donnees,
-    });
-
-    comptesActives.push({ role: compte.role, username: compte.nouveauUsername });
-  }
-
-  const agentUtilisateur = await prisma.agent.findUnique({ where: { matricule: 1001 } });
-
-  await prisma.utilisateur.create({
-    data: {
-      username: 'utilisateur.test',
-      motdepasse: motDePasseHache,
-      telephone: agentUtilisateur.numero,
-      agentMatricule: agentUtilisateur.matricule,
-    },
-  });
-
-  comptesActives.push({ role: 'UTILISATEUR', username: 'utilisateur.test' });
-
-  return comptesActives;
-}
-
 async function main() {
   await viderBase();
 
@@ -284,7 +224,6 @@ async function main() {
   const admin = await creerAdmin();
   const nombreEmplacements = await creerEmplacements(structuresParCode);
   const nombreAgents = await creerAgentsTest(structuresParCode);
-  const comptesActives = await activerComptesTest();
 
   console.log('=== SEED TERMINE ===');
   console.log(`Structures     : ${Object.keys(structuresParCode).length}`);
@@ -305,14 +244,6 @@ async function main() {
     } else {
       console.log('Mot de passe   : celui defini dans ADMIN_PASSWORD');
     }
-  }
-
-  if (comptesActives.length > 0) {
-    console.log('');
-    console.log('Comptes de test actives, mot de passe = TEST_PASSWORD :');
-    comptesActives.forEach((compte) => {
-      console.log(`  ${compte.role.padEnd(12)} ${compte.username}`);
-    });
   }
 
   console.log('');

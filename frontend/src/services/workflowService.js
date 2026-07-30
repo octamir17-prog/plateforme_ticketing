@@ -1,23 +1,23 @@
 import api from './api';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const authService = {
   login: async (username, motdepasse, typeCompte) => {
     const normalizedTypeCompte = typeof typeCompte === 'string' ? typeCompte.toUpperCase() : typeCompte;
-    const res = await api.post('/auth/login', { username, motdepasse, typeCompte: normalizedTypeCompte });
+    const body = { username, motdepasse };
+    if (normalizedTypeCompte) {
+      body.typeCompte = normalizedTypeCompte;
+    }
+    const res = await api.post('/auth/login', body);
     const payload = res.data?.data || res.data;
     if (payload?.accessToken) {
-      localStorage.setItem('accessToken', payload.accessToken);
-      localStorage.setItem('refreshToken', payload.refreshToken);
-      localStorage.setItem('typeCompte', payload.typeCompte);
-      if (payload.profil || payload.user) {
-        localStorage.setItem('user', JSON.stringify(payload.profil || payload.user));
-      }
+      useAuthStore.getState().loginSuccess(payload);
     }
     return payload;
   },
 
-  verifyAgent: async (matricule, numeroTelephone, aCompte = false) => {
-    const res = await api.post('/auth/verifier-agent', { matricule, numeroTelephone, aCompte });
+  verifyAgent: async (matricule, numeroTelephone) => {
+    const res = await api.post('/auth/verifier-agent', { matricule, numeroTelephone });
     return res.data?.data || res.data;
   },
 
@@ -58,13 +58,8 @@ export const authService = {
     return res.data?.data || res.data;
   },
 
-  getActivationInfo: async (token) => {
-    const res = await api.get(`/auth/activation/${token}`);
-    return res.data?.data || res.data;
-  },
-
-  activateAccount: async (token, username, motdepasse) => {
-    const res = await api.post(`/auth/activation/${token}`, { username, motdepasse });
+  updateAgentProfile: async (matricule, code, nom, prenom) => {
+    const res = await api.patch('/auth/profil-agent', { matricule, code, nom, prenom });
     return res.data?.data || res.data;
   }
 };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import Protectedroute from './routes/Protectedroute';
 import VerificationMatricule from './pages/auth/VerificationMatricule';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -20,20 +21,34 @@ export default function App() {
         <Route path="/" element={<VerificationMatricule />} />
         <Route path="/login" element={<Login />} />
         <Route path="/inscription" element={<Register />} />
-        
-        {/* Nouveaux liens d'activation et de connexion staff */}
+
+        {/* Liens d'activation et de connexion staff */}
         <Route path="/activation/:token" element={<StaffActivation />} />
         <Route path="/connexion-staff" element={<StaffLogin />} />
 
         <Route path="/creer-ticket" element={<CreateTicket />} />
         <Route path="/home" element={<Home />} />
 
-        {/* Routes ouvertes temporairement pour prévisualisation */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/responsable/dashboard" element={<ResponsableDashboard />} />
-        <Route path="/technicien/dashboard" element={<TechnicienDashboard />} />
-        <Route path="/point-focal/dashboard" element={<PointFocalDashboard />} />
-        <Route path="/utilisateur/dashboard" element={<UtilisateurDashboard />} />
+        {/* Chaque dashboard est desormais protege : jeton valide + role exact requis */}
+        <Route element={<Protectedroute allowedRoles={['ADMIN']} />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        </Route>
+
+        <Route element={<Protectedroute allowedRoles={['RESPONSABLE']} />}>
+          <Route path="/responsable/dashboard" element={<ResponsableDashboard />} />
+        </Route>
+
+        <Route element={<Protectedroute allowedRoles={['TECHNICIEN']} />}>
+          <Route path="/technicien/dashboard" element={<TechnicienDashboard />} />
+        </Route>
+
+        <Route element={<Protectedroute allowedRoles={['POINT_FOCAL']} />}>
+          <Route path="/point-focal/dashboard" element={<PointFocalDashboard />} />
+        </Route>
+
+        <Route element={<Protectedroute allowedRoles={['UTILISATEUR']} />}>
+          <Route path="/utilisateur/dashboard" element={<UtilisateurDashboard />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
