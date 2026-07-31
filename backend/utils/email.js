@@ -45,7 +45,7 @@ Ce code est valable 1 heure.`;
   return envoyer(destinataire, sujet, contenu);
 }
 
-async function envoyerLienActivation(destinataire, nomComplet, libelleRole, structureDesignation, token) {
+async function envoyerLienActivation(destinataire, nomComplet, libelleRole, structureDesignation, token, suggestionUsername) {
   const urlActivation = `${origineFrontendPourLiens()}/activation/${token}`;
   const sujet = `Activation de votre compte ${libelleRole}`;
   const contenu = `Bonjour ${nomComplet},
@@ -54,6 +54,8 @@ Vous avez ete designe ${libelleRole} pour la structure : ${structureDesignation}
 
 Rendez-vous sur le lien ci-dessous pour choisir votre identifiant et votre mot de passe :
 ${urlActivation}
+
+Suggestion de nom d'utilisateur : ${suggestionUsername} (vous pouvez en choisir un autre si vous preferez).
 
 Ce lien est valable 24 heures et ne peut etre utilise qu'une seule fois.`;
 

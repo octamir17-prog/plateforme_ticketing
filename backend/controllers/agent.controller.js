@@ -37,6 +37,10 @@ async function creer(req, res) {
     return res.status(400).json({ success: false, message: 'Champs obligatoires manquants.', errors: [] });
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: 'Adresse email invalide.', errors: [] });
+  }
+
   const existant = await prisma.agent.findUnique({ where: { matricule: Number(matricule) } });
 
   if (existant) {
@@ -215,6 +219,11 @@ async function importerAgents(req, res) {
 
     if (!nom || !prenom || !numero || !email) {
       echecs.push({ ligne: numeroLigne, matricule, raison: 'Nom, prenom, numero et email sont obligatoires.' });
+      continue;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      echecs.push({ ligne: numeroLigne, matricule, raison: 'Adresse email invalide.' });
       continue;
     }
 

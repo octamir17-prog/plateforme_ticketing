@@ -22,41 +22,48 @@ function retirerChampsSensibles(compte) {
 async function listerEmplacements(req, res) {
   const { role, codeStructure, statut } = req.query;
 
-  if (!role || !TABLE_PAR_ROLE[role]) {
+  if (role && !TABLE_PAR_ROLE[role]) {
     return res.status(400).json({ success: false, message: 'Role invalide.', errors: [] });
   }
 
-  const table = TABLE_PAR_ROLE[role]();
-  const where = {};
+  const rolesAParcourir = role ? [role] : Object.keys(TABLE_PAR_ROLE);
+  let donnees = [];
 
-  if (role === 'TECHNICIEN') {
-    if (codeStructure) {
-      const structure = await prisma.structure.findUnique({ where: { codeStructure } });
-      const responsable = structure
-        ? await prisma.responsableEquipeTechnique.findUnique({ where: { structureId: structure.id } })
-        : null;
-      where.responsableId = responsable ? responsable.id : 0;
+  for (const roleCourant of rolesAParcourir) {
+    const table = TABLE_PAR_ROLE[roleCourant]();
+    const where = {};
+
+    if (roleCourant === 'TECHNICIEN') {
+      if (codeStructure) {
+        const structure = await prisma.structure.findUnique({ where: { codeStructure } });
+        const responsable = structure
+          ? await prisma.responsableEquipeTechnique.findUnique({ where: { structureId: structure.id } })
+          : null;
+        where.responsableId = responsable ? responsable.id : 0;
+      }
+    } else if (codeStructure) {
+      where.structure = { codeStructure };
     }
-  } else if (codeStructure) {
-    where.structure = { codeStructure };
+
+    const emplacements = await table.findMany({
+      where,
+      include: roleCourant === 'TECHNICIEN' ? { responsable: { include: { structure: true } } } : { structure: true },
+      orderBy: { username: 'asc' },
+    });
+
+    donnees = donnees.concat(
+      emplacements.map((emplacement) => ({
+        id: emplacement.id,
+        username: emplacement.username,
+        role: roleCourant,
+        statut: statutEmplacement(emplacement),
+        structure: roleCourant === 'TECHNICIEN' ? emplacement.responsable.structure : emplacement.structure,
+        agentMatricule: emplacement.agentMatricule,
+      }))
+    );
   }
 
-  const emplacements = await table.findMany({
-    where,
-    include: role === 'TECHNICIEN' ? { responsable: { include: { structure: true } } } : { structure: true },
-    orderBy: { username: 'asc' },
-  });
-
-  const donnees = emplacements
-    .map((emplacement) => ({
-      id: emplacement.id,
-      username: emplacement.username,
-      role,
-      statut: statutEmplacement(emplacement),
-      structure: role === 'TECHNICIEN' ? emplacement.responsable.structure : emplacement.structure,
-      agentMatricule: emplacement.agentMatricule,
-    }))
-    .filter((emplacement) => !statut || emplacement.statut === statut);
+  donnees = donnees.filter((emplacement) => !statut || emplacement.statut === statut);
 
   return res.status(200).json({ success: true, data: donnees });
 }
@@ -105,40 +112,10 @@ async function creerEmplacement(req, res) {
     });
   }
 
-  const techniciens = await prisma.technicien.findMany({
-    where: { responsableId: responsable.id },
-    select: { username: true },
-  });
-
-  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`^${escapeRegExp(codeStructure)}-TEC(\\d+)$`, 'i');
-  const usedIndices = new Set();
-
-  techniciens.forEach(({ username }) => {
-    const match = username.match(pattern);
-    if (match) {
-      usedIndices.add(Number(match[1]));
-    }
-  });
-
-  let nextIndex = 1;
-  while (usedIndices.has(nextIndex)) {
-    nextIndex += 1;
-  }
-
-  const username = `${codeStructure}-TEC${nextIndex}`;
-  const existing = await prisma.technicien.findUnique({ where: { username } });
-
-  if (existing) {
-    return res.status(409).json({
-      success: false,
-      message: `Un technicien avec le nom ${username} existe deja.`,
-      errors: [],
-    });
-  }
+  const techniciensExistants = await prisma.technicien.count({ where: { responsableId: responsable.id } });
 
   const emplacement = await prisma.technicien.create({
-    data: { username, responsableId: responsable.id },
+    data: { username: `${codeStructure}-TEC${techniciensExistants + 1}`, responsableId: responsable.id },
   });
 
   return res.status(201).json({ success: true, message: 'Emplacement cree.', data: emplacement });
@@ -162,6 +139,25 @@ async function attribuer(req, res) {
 
   if (!emplacement) {
     return res.status(404).json({ success: false, message: 'Emplacement introuvable.', errors: [] });
+  }
+
+  let structureEmplacementId;
+
+  if (role === 'TECHNICIEN') {
+    const responsableDeLEmplacement = await prisma.responsableEquipeTechnique.findUnique({
+      where: { id: emplacement.responsableId },
+    });
+    structureEmplacementId = responsableDeLEmplacement.structureId;
+  } else {
+    structureEmplacementId = emplacement.structureId;
+  }
+
+  if (agent.structureId !== structureEmplacementId) {
+    return res.status(409).json({
+      success: false,
+      message: 'Cet agent n\'appartient pas a la structure de cet emplacement.',
+      errors: [],
+    });
   }
 
   if (emplacement.agentMatricule) {
@@ -250,7 +246,7 @@ async function listerResponsables(req, res) {
 }
 
 async function listerTechniciens(req, res) {
-  const filtres = {};
+  const filtres = { motdepasse: { not: null }, actif: true };
 
   if (req.query.responsableId) {
     filtres.responsableId = Number(req.query.responsableId);

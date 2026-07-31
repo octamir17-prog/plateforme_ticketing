@@ -99,7 +99,10 @@ async function escaladables(req, res) {
   }
 
   const structures = await prisma.structure.findMany({
-    where: { niveau: { ordre: { lt: structure.niveau.ordre } } },
+    where: {
+      id: { not: structure.id },
+      niveau: { ordre: { lte: structure.niveau.ordre } },
+    },
     include: { type: true, niveau: true },
     orderBy: { niveau: { ordre: 'asc' } },
   });

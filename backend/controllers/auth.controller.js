@@ -333,6 +333,10 @@ async function login(req, res) {
 
   const { motdepasse: _, responsable, ...compteSansMotDePasse } = compte;
 
+  if (resolvedTypeCompte === 'TECHNICIEN') {
+    compteSansMotDePasse.structureId = responsable ? responsable.structureId : null;
+  }
+
   return res.status(200).json({
     success: true,
     message: 'Connexion reussie.',
@@ -390,13 +394,20 @@ async function logout(req, res) {
 
 async function moi(req, res) {
   const table = prisma[TABLES_PAR_TYPE[req.compte.typeCompte]];
-  const compte = await table.findUnique({ where: { id: req.compte.id } });
+
+  const compte = req.compte.typeCompte === 'TECHNICIEN'
+    ? await table.findUnique({ where: { id: req.compte.id }, include: { responsable: true } })
+    : await table.findUnique({ where: { id: req.compte.id } });
 
   if (!compte) {
     return res.status(404).json({ success: false, message: 'Compte introuvable.', errors: [] });
   }
 
-  const { motdepasse: _, ...compteSansMotDePasse } = compte;
+  const { motdepasse: _, responsable, ...compteSansMotDePasse } = compte;
+
+  if (req.compte.typeCompte === 'TECHNICIEN') {
+    compteSansMotDePasse.structureId = responsable ? responsable.structureId : null;
+  }
 
   return res.status(200).json({ success: true, data: { ...compteSansMotDePasse, typeCompte: req.compte.typeCompte } });
 }

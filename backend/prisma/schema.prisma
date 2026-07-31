@@ -78,8 +78,6 @@ model PointFocal {
   id                        Int       @id @default(autoincrement())
   username                  String    @unique
   motdepasse                String?
-  nom                       String?
-  prenom                    String?
   telephone                 String?
   tokenActivation           String?   @unique
   tokenActivationExpiration DateTime?

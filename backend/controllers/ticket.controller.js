@@ -92,6 +92,7 @@ function formaterLigne(affectation) {
       technicienId: affectation.technicienId,
       technicien: affectation.technicien,
       responsableId: affectation.responsableId,
+      commentaire: affectation.commentaire,
       recuParEscalade: affectation.affectationPrecedente ? affectation.affectationPrecedente.escalade : false,
     },
   };
