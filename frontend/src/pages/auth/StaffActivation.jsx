@@ -37,7 +37,10 @@ export default function StaffActivation() {
       if (res && res.role) {
         setDataActivation(res);
         if (res.agent?.email) {
-          setUsername(res.agent.email.split('@')[0]);
+          const prefixeEmail = res.agent.email.split('@')[0];
+          const suffixeParRole = { TECHNICIEN: '-tech', POINT_FOCAL: '-pf' };
+          const suffixe = suffixeParRole[res.role] || '';
+          setUsername(`${prefixeEmail}${suffixe}`);
         }
       } else {
         setTokenInvalid(true);
@@ -242,7 +245,7 @@ export default function StaffActivation() {
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Suggestion : la partie de votre email avant le @ (modifiable si vous préférez autre chose).
+                    Suggestion : la partie de votre email avant le @, suivie de "-tech" pour un compte technicien ou "-pf" pour un compte point focal (modifiable si vous préférez autre chose).
                   </p>
                 </div>
 

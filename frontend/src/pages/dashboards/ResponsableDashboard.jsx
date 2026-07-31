@@ -12,6 +12,9 @@ import {
   ArrowUpRight,
   Undo2,
   X,
+  Eye,
+  Paperclip,
+  FileText,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -27,6 +30,8 @@ export default function ResponsableDashboard() {
 
   const [ticketActif, setTicketActif] = useState(null);
   const [modaleOuverte, setModaleOuverte] = useState(null);
+  const [ticketDetail, setTicketDetail] = useState(null);
+  const [imageZoom, setImageZoom] = useState(null);
   const [nouveauTechnicienId, setNouveauTechnicienId] = useState('');
   const [priorite, setPriorite] = useState('');
   const [codeStructureCible, setCodeStructureCible] = useState('');
@@ -106,6 +111,14 @@ export default function ResponsableDashboard() {
     setTicketActif(ticket);
     setModaleOuverte('transferer');
   };
+
+  const ouvrirDetail = (ticket) => {
+    setTicketDetail(ticket);
+  };
+
+  const getFileUrl = (chemin) => `/${chemin}`;
+
+  const estImage = (chemin) => /\.(png|jpe?g)$/i.test(chemin || '');
 
   const ouvrirEscalade = async (ticket) => {
     setTicketActif(ticket);
@@ -209,7 +222,7 @@ export default function ResponsableDashboard() {
   };
 
   const techniciensDisponibles = techniciens.filter(
-    (t) => t.actif !== false && t.id !== ticketActif?.affectation?.technicienId
+    (t) => t.id !== ticketActif?.affectation?.technicienId
   );
 
   return (
@@ -398,47 +411,67 @@ export default function ResponsableDashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-6 whitespace-nowrap text-right">
-                        {!estCloture && (
-                          <div className="inline-flex items-center justify-end gap-2">
-                            {!aUnTechnicien && (
-                              <button
-                                onClick={() => ouvrirAffectation(ticket)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                              >
-                                <UserPlus className="w-3 h-3" />
-                                <span>Affecter</span>
-                              </button>
-                            )}
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => ouvrirDetail(ticket)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Détail</span>
+                          </button>
 
-                            {aUnTechnicien && (
-                              <button
-                                onClick={() => ouvrirTransfert(ticket)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                              >
-                                <ArrowRightLeft className="w-3 h-3" />
-                                <span>Transférer</span>
-                              </button>
-                            )}
-
-                            {recuParEscalade && (
-                              <button
-                                onClick={() => ouvrirRetour(ticket)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                              >
-                                <Undo2 className="w-3 h-3" />
-                                <span>Retourner</span>
-                              </button>
-                            )}
-
+                          {estCloture && affectation?.commentaire && (
                             <button
-                              onClick={() => ouvrirEscalade(ticket)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                              onClick={() => ouvrirDetail(ticket)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
                             >
-                              <ArrowUpRight className="w-3 h-3" />
-                              <span>Escalader</span>
+                              <FileText className="w-3 h-3" />
+                              <span>Voir compte rendu</span>
                             </button>
-                          </div>
-                        )}
+                          )}
+
+                          {!estCloture && (
+                            <>
+                              {!aUnTechnicien && (
+                                <button
+                                  onClick={() => ouvrirAffectation(ticket)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                                >
+                                  <UserPlus className="w-3 h-3" />
+                                  <span>Affecter</span>
+                                </button>
+                              )}
+
+                              {aUnTechnicien && (
+                                <button
+                                  onClick={() => ouvrirTransfert(ticket)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                                >
+                                  <ArrowRightLeft className="w-3 h-3" />
+                                  <span>Transférer</span>
+                                </button>
+                              )}
+
+                              {recuParEscalade && (
+                                <button
+                                  onClick={() => ouvrirRetour(ticket)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                                >
+                                  <Undo2 className="w-3 h-3" />
+                                  <span>Retourner</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => ouvrirEscalade(ticket)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                              >
+                                <ArrowUpRight className="w-3 h-3" />
+                                <span>Escalader</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -499,6 +532,84 @@ export default function ResponsableDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {ticketDetail && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800">Ticket #{ticketDetail.reference}</h3>
+              <button onClick={() => setTicketDetail(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Titre</p>
+                <p className="text-slate-800 font-medium">{ticketDetail.titre}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Description</p>
+                <p className="text-slate-700 whitespace-pre-wrap">{ticketDetail.description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Catégorie</p>
+                  <p className="text-slate-700">{ticketDetail.categorie?.nom}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Demandeur</p>
+                  <p className="text-slate-700">{ticketDetail.agent?.nom} {ticketDetail.agent?.prenom}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Pièce jointe</p>
+                {ticketDetail.pieceJointe ? (
+                  estImage(ticketDetail.pieceJointe) ? (
+                    <img
+                      src={getFileUrl(ticketDetail.pieceJointe)}
+                      alt="Pièce jointe du ticket"
+                      onClick={() => setImageZoom(getFileUrl(ticketDetail.pieceJointe))}
+                      className="mt-2 max-h-48 rounded-xl border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                    />
+                  ) : (
+                    <a
+                      href={getFileUrl(ticketDetail.pieceJointe)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-1 text-[#15aabf] hover:underline font-semibold"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>Voir la pièce jointe</span>
+                    </a>
+                  )
+                ) : (
+                  <p className="text-slate-400 italic">Aucune pièce jointe</p>
+                )}
+              </div>
+
+              {ticketDetail.affectation?.commentaire && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Compte rendu du technicien</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">{ticketDetail.affectation.commentaire}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setTicketDetail(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -666,6 +777,21 @@ export default function ResponsableDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {imageZoom && (
+        <div
+          onClick={() => setImageZoom(null)}
+          className="fixed inset-0 bg-slate-900/80 flex items-center justify-center p-4 z-[60] cursor-zoom-out"
+        >
+          <button
+            onClick={() => setImageZoom(null)}
+            className="absolute top-4 right-4 text-white hover:text-slate-300 cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img src={imageZoom} alt="Pièce jointe agrandie" className="max-w-full max-h-full rounded-xl" />
         </div>
       )}
     </div>

@@ -10,6 +10,9 @@ import {
   AlertCircle,
   Folder,
   ArrowUpRight,
+  Eye,
+  Paperclip,
+  FileText,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -19,29 +22,33 @@ export default function TechnicienDashboard() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [commentaireCloture, setCommentaireCloture] = useState('');
   const [motifEscalade, setMotifEscalade] = useState('');
+  const [codeStructureCible, setCodeStructureCible] = useState('');
+  const [structuresCibles, setStructuresCibles] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [imageZoom, setImageZoom] = useState(null);
   const [isEscaladeModalOpen, setIsEscaladeModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [tickets, setTickets] = useState([]);
 
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get('/tickets');
-        const payload = res.data?.data || res.data || [];
-        setTickets(Array.isArray(payload) ? payload : []);
-        setError('');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
-        setTickets([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/tickets');
+      const payload = res.data?.data || res.data || [];
+      setTickets(Array.isArray(payload) ? payload : []);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchTickets();
   }, []);
 
@@ -49,7 +56,7 @@ export default function TechnicienDashboard() {
     total: tickets.length,
     affectes: tickets.filter((t) => t.affectation?.statut === 'EN_ATTENTE').length,
     enTraitement: tickets.filter((t) => t.affectation?.statut === 'EN_TRAITEMENT').length,
-    escalades: tickets.filter((t) => t.affectation?.statut === 'ESCALADE').length,
+    escalades: tickets.filter((t) => t.affectation?.recuParEscalade).length,
     clotures: tickets.filter((t) => t.affectation?.statut === 'CLOTUREE').length,
   };
 
@@ -83,18 +90,20 @@ export default function TechnicienDashboard() {
 
   const handleEscalader = async (e) => {
     e.preventDefault();
-    if (!selectedTicket?.affectation?.id) return;
+    if (!selectedTicket?.affectation?.id || !codeStructureCible) return;
 
     const affectationId = selectedTicket.affectation.id;
 
     try {
       await api.post(`/affectations/${affectationId}/escalader`, {
-        motif: motifEscalade,
+        codeStructureCible,
+        raisonEscalade: motifEscalade || undefined,
       });
-      setTickets((prev) => prev.map((t) => (t.affectation?.id === affectationId ? { ...t, affectation: { ...t.affectation, statut: 'ESCALADE' } } : t)));
       setIsEscaladeModalOpen(false);
       setSelectedTicket(null);
       setMotifEscalade('');
+      setCodeStructureCible('');
+      fetchTickets();
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de l\'escalade du ticket.');
     }
@@ -105,9 +114,28 @@ export default function TechnicienDashboard() {
     setIsModalOpen(true);
   };
 
-  const openEscaladeModal = (ticket) => {
+  const openDetailModal = (ticket) => {
+    setSelectedTicket(ticket);
+    setIsDetailModalOpen(true);
+  };
+
+  const getFileUrl = (chemin) => `/${chemin}`;
+
+  const estImage = (chemin) => /\.(png|jpe?g)$/i.test(chemin || '');
+
+  const openEscaladeModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsEscaladeModalOpen(true);
+    const structureTechnicien = JSON.parse(sessionStorage.getItem('user') || '{}')?.structureId;
+    if (structureTechnicien) {
+      try {
+        const res = await api.get(`/structures/${structureTechnicien}/escaladables`);
+        const payload = res.data?.data || res.data || [];
+        setStructuresCibles(Array.isArray(payload) ? payload : []);
+      } catch (err) {
+        setStructuresCibles([]);
+      }
+    }
   };
 
   const filteredTickets = tickets.filter((ticket) => {
@@ -115,7 +143,7 @@ export default function TechnicienDashboard() {
       filter === 'TOUS' ||
       (filter === 'EN_ATTENTE' && ticket.affectation?.statut === 'EN_ATTENTE') ||
       (filter === 'EN_TRAITEMENT' && ticket.affectation?.statut === 'EN_TRAITEMENT') ||
-      (filter === 'ESCALADE' && ticket.affectation?.statut === 'ESCALADE') ||
+      (filter === 'ESCALADE' && ticket.affectation?.recuParEscalade) ||
       (filter === 'CLOTUREE' && ticket.affectation?.statut === 'CLOTUREE');
 
     const matchSearch =
@@ -288,16 +316,24 @@ export default function TechnicienDashboard() {
                       <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
                         ticket.affectation?.statut === 'EN_TRAITEMENT' ? 'bg-amber-100 text-amber-700' :
                         ticket.affectation?.statut === 'CLOTUREE' ? 'bg-emerald-100 text-emerald-700' :
-                        ticket.affectation?.statut === 'ESCALADE' ? 'bg-purple-100 text-purple-700' :
+                        ticket.affectation?.recuParEscalade ? 'bg-purple-100 text-purple-700' :
                         'bg-blue-100 text-blue-700'
                       }`}>
                         {ticket.affectation?.statut === 'EN_TRAITEMENT' ? 'En cours' :
                          ticket.affectation?.statut === 'CLOTUREE' ? 'Clôturé' :
-                         ticket.affectation?.statut === 'ESCALADE' ? 'Escaladé' : 'À démarrer'}
+                         ticket.affectation?.recuParEscalade ? 'Escaladé' : 'À démarrer'}
                       </span>
                     </td>
                     <td className="py-4 px-6 whitespace-nowrap text-right">
                       <div className="inline-flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openDetailModal(ticket)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>Détail</span>
+                        </button>
+
                         {ticket.affectation?.statut === 'EN_ATTENTE' && (
                           <>
                             <button
@@ -344,6 +380,84 @@ export default function TechnicienDashboard() {
           )}
         </div>
       </div>
+
+      {isDetailModalOpen && selectedTicket && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800">Ticket #{selectedTicket.reference}</h3>
+              <button onClick={() => setIsDetailModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Titre</p>
+                <p className="text-slate-800 font-medium">{selectedTicket.titre}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Description</p>
+                <p className="text-slate-700 whitespace-pre-wrap">{selectedTicket.description}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Catégorie</p>
+                  <p className="text-slate-700">{selectedTicket.categorie?.nom}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Demandeur</p>
+                  <p className="text-slate-700">{selectedTicket.agent?.nom} {selectedTicket.agent?.prenom}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Pièce jointe</p>
+                {selectedTicket.pieceJointe ? (
+                  estImage(selectedTicket.pieceJointe) ? (
+                    <img
+                      src={getFileUrl(selectedTicket.pieceJointe)}
+                      alt="Pièce jointe du ticket"
+                      onClick={() => setImageZoom(getFileUrl(selectedTicket.pieceJointe))}
+                      className="mt-2 max-h-48 rounded-xl border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
+                    />
+                  ) : (
+                    <a
+                      href={getFileUrl(selectedTicket.pieceJointe)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-1 text-[#15aabf] hover:underline font-semibold"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>Voir la pièce jointe</span>
+                    </a>
+                  )
+                ) : (
+                  <p className="text-slate-400 italic">Aucune pièce jointe</p>
+                )}
+              </div>
+
+              {selectedTicket.affectation?.commentaire && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase">Compte rendu</p>
+                  <p className="text-slate-700 whitespace-pre-wrap">{selectedTicket.affectation.commentaire}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -392,11 +506,25 @@ export default function TechnicienDashboard() {
 
             <form onSubmit={handleEscalader} className="space-y-4">
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Structure cible</label>
+                <select
+                  required
+                  value={codeStructureCible}
+                  onChange={(e) => setCodeStructureCible(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
+                >
+                  <option value="">Sélectionner...</option>
+                  {structuresCibles.map((s) => (
+                    <option key={s.codeStructure} value={s.codeStructure}>{s.designation}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Motif de l'escalade</label>
                 <textarea
                   rows="4"
-                  required
-                  placeholder="Précisez la raison pour laquelle vous transférez ce ticket au responsable..."
+                  placeholder="Précisez la raison pour laquelle vous transférez ce ticket au niveau supérieur..."
                   value={motifEscalade}
                   onChange={(e) => setMotifEscalade(e.target.value)}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
@@ -413,6 +541,21 @@ export default function TechnicienDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {imageZoom && (
+        <div
+          onClick={() => setImageZoom(null)}
+          className="fixed inset-0 bg-slate-900/80 flex items-center justify-center p-4 z-[60] cursor-zoom-out"
+        >
+          <button
+            onClick={() => setImageZoom(null)}
+            className="absolute top-4 right-4 text-white hover:text-slate-300 cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img src={imageZoom} alt="Pièce jointe agrandie" className="max-w-full max-h-full rounded-xl" />
         </div>
       )}
     </div>

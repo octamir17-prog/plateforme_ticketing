@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, UserPlus } from 'lucide-react';
 import { authService } from '../../services/workflowService';
+
+const retirerAccents = (texte) => texte.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const suggererUsername = (prenom, nom) => {
+  const prefixePrenom = retirerAccents((prenom || '').trim()).slice(0, 3).toLowerCase();
+  const nomNettoye = retirerAccents((nom || '').trim()).replace(/\s+/g, '').toLowerCase();
+  return `${prefixePrenom}${nomNettoye}`;
+};
 
 export default function Register() {
   const navigate = useNavigate();
@@ -10,6 +18,14 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const donneesBrutes = sessionStorage.getItem('agentPreview');
+    if (donneesBrutes) {
+      const donnees = JSON.parse(donneesBrutes);
+      setUsername(suggererUsername(donnees.prenom, donnees.nom));
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +56,14 @@ export default function Register() {
       localStorage.removeItem('temp_code');
       navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Une erreur est survenue lors de l’inscription.');
+      const status = err.response?.status;
+      if (status === 409) {
+        setError(err.response?.data?.message || 'Ce nom d\'utilisateur est déjà pris. Veuillez en saisir un autre.');
+      } else if (status === 400) {
+        setError(err.response?.data?.message || 'Mot de passe trop court ou champ manquant.');
+      } else {
+        setError(err.response?.data?.message || 'Une erreur est survenue lors de l\'inscription.');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,7 +78,7 @@ export default function Register() {
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
             {error}
           </div>
         )}
@@ -76,6 +99,9 @@ export default function Register() {
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
               />
             </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Suggestion : les 3 premières lettres de votre prénom suivies de votre nom (modifiable si vous préférez autre chose).
+            </p>
           </div>
 
           <div>
@@ -132,4 +158,3 @@ export default function Register() {
     </div>
   );
 }
-

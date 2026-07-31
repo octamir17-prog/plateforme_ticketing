@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [roleFilter, setRoleFilter] = useState('RESPONSABLE');
+  const [roleFilter, setRoleFilter] = useState('');
   const [structureFilterCode, setStructureFilterCode] = useState('');
   const [structureSearchFilter, setStructureSearchFilter] = useState('');
   const [showStructureFilterDropdown, setShowStructureFilterDropdown] = useState(false);
@@ -191,14 +191,9 @@ export default function AdminDashboard() {
   };
 
   const fetchEmplacements = async () => {
-    if (!roleFilter) {
-      setEmplacements([]);
-      return;
-    }
-
     try {
       const params = new URLSearchParams();
-      params.append('role', roleFilter);
+      if (roleFilter) params.append('role', roleFilter);
       if (structureFilterCode) params.append('codeStructure', structureFilterCode);
       if (statutFilter) params.append('statut', statutFilter);
 
@@ -524,7 +519,7 @@ export default function AdminDashboard() {
                       onChange={(e) => setRoleFilter(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
                     >
-                      <option value=""> Rôles</option>
+                      <option value="">Tous les rôles</option>
                       <option value="RESPONSABLE">Responsable</option>
                       <option value="TECHNICIEN">Technicien</option>
                       <option value="POINT_FOCAL">Point focal</option>
@@ -847,11 +842,20 @@ export default function AdminDashboard() {
                 <p className="text-xs text-slate-500 mb-6">Fichier Excel (.xlsx), 5 Mo maximum.</p>
 
                 <form onSubmit={handleImportExcel} className="space-y-4">
-                  <label className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors bg-slate-50">
-                    <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                    <span className="text-xs text-slate-600 font-medium">
+                  <label className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                    importFile ? 'border-emerald-300 bg-emerald-50' : 'border-slate-300 hover:border-slate-400 bg-slate-50'
+                  }`}>
+                    {importFile ? (
+                      <FileSpreadsheet className="w-8 h-8 text-emerald-600 mb-2" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                    )}
+                    <span className={`text-xs font-medium ${importFile ? 'text-emerald-700' : 'text-slate-600'}`}>
                       {importFile ? importFile.name : 'agents_ministere.xlsx'}
                     </span>
+                    {importFile && (
+                      <span className="text-[10px] text-emerald-600 font-semibold mt-1">Fichier sélectionné, prêt à importer</span>
+                    )}
                     <input
                       type="file"
                       accept=".xlsx, .xls"
