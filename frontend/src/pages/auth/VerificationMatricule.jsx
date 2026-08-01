@@ -78,8 +78,26 @@ export default function VerificationMatricule() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-50px)] bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
+      <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
+        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
+          <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
+        </div>
+
+        <div className="text-center px-2 flex-1 min-w-0">
+          <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
+            Bienvenue sur votre Plateforme de Ticketing
+          </h1>
+          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
+        </div>
+
+        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
+          <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
+        </div>
+      </header>
+
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
         
         {/* En-tête */}
         <div className="text-center space-y-2">
@@ -251,6 +269,7 @@ export default function VerificationMatricule() {
           </div>
         )}
 
+        </div>
       </div>
     </div>
   );
