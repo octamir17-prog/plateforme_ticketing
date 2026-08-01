@@ -2,7 +2,7 @@ const express = require('express');
 const routeur = express.Router();
 const controleur = require('../controllers/agent.controller');
 const { authentifier, autoriser } = require('../middlewares/auth.middleware');
-const uploadExcel = require('../middlewares/importExcel.middleware');
+const uploadExcel = require('../middlewares/Importexcel.middleware');
 
 routeur.use(authentifier);
 
