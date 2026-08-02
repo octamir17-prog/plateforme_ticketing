@@ -66,20 +66,22 @@ export default function StaffLogin() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
       <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo_sante.png" alt="Logo Ministère" className="h-9 sm:h-10 w-auto object-contain" />
-            <div>
-              <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-wide uppercase">
-                Ministère de la Santé
-              </h1>
-              <p className="text-[11px] font-semibold" style={{ color: '#15aabf' }}>
-                République du Bénin
-              </p>
-            </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="h-9 sm:h-10 w-auto shrink-0 flex items-center">
+            <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
           </div>
-          <div className="bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600">
-            Espace Staff
+
+          <div className="text-center px-2 flex-1 min-w-0">
+            <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-wide truncate">
+              Bienvenue sur l'espace de connexion du personnel
+            </h1>
+            <p className="text-[11px] font-semibold truncate" style={{ color: '#15aabf' }}>
+              Ministère de la Santé — République du Bénin
+            </p>
+          </div>
+
+          <div className="h-9 sm:h-10 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
+            <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
           </div>
         </div>
       </header>

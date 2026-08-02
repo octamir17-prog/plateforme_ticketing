@@ -391,7 +391,7 @@ export default function AdminDashboard() {
       const res = await api.post('/agents/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setImportResult(res.data);
+      setImportResult(res.data?.data || res.data);
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de l\'importation');
     } finally {
@@ -882,7 +882,7 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                       <p className="text-xs text-slate-500">Lignes lues</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">{importResult.lignesLues || 0}</p>
+                      <p className="text-2xl font-bold text-slate-800 mt-1">{importResult.totalLignes || 0}</p>
                     </div>
                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
                       <p className="text-xs text-emerald-700 font-medium">Réussites</p>
@@ -890,16 +890,16 @@ export default function AdminDashboard() {
                     </div>
                     <div className="bg-rose-50 p-4 rounded-xl border border-rose-200">
                       <p className="text-xs text-rose-700 font-medium">Échecs</p>
-                      <p className="text-2xl font-bold text-rose-700 mt-1">{importResult.echecs || 0}</p>
+                      <p className="text-2xl font-bold text-rose-700 mt-1">{importResult.echecs?.length || 0}</p>
                     </div>
                   </div>
 
-                  {importResult.erreurs?.length > 0 && (
+                  {importResult.echecs?.length > 0 && (
                     <div className="space-y-2">
-                      {importResult.erreurs.map((err, idx) => (
+                      {importResult.echecs.map((err, idx) => (
                         <div key={idx} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs shadow-sm">
-                          <span className="text-slate-700 font-medium">{err.ligne}</span>
-                          <span className="text-rose-600">{err.message}</span>
+                          <span className="text-slate-700 font-medium">Ligne {err.ligne} — matricule {err.matricule}</span>
+                          <span className="text-rose-600">{err.raison}</span>
                         </div>
                       ))}
                     </div>
