@@ -17,6 +17,21 @@ function normaliserLigne(ligneBrute) {
   return ligne;
 }
 
+function normaliserTelephone(valeur) {
+  let numero = String(valeur).trim();
+  numero = numero.replace(/\D/g, '');
+
+  if (numero.length === 8) {
+    numero = '01' + numero;
+  }
+
+  if (numero.length === 9 && numero.startsWith('1')) {
+    numero = '0' + numero;
+  }
+
+  return numero;
+}
+
 function lireLignesExcel(buffer) {
   const classeur = XLSX.read(buffer, { type: 'buffer' });
   const premiereFeuille = classeur.SheetNames[0];
@@ -32,6 +47,7 @@ function validerEntetes(lignesBrutes) {
 
 async function creer(req, res) {
   const { matricule, nom, prenom, sexe, numero, email } = req.body;
+  const numeroNormalise = normaliserTelephone(numero);
 
   if (!matricule || !nom || !prenom || !sexe || !numero || !email) {
     return res.status(400).json({ success: false, message: 'Champs obligatoires manquants.', errors: [] });
@@ -59,7 +75,7 @@ async function creer(req, res) {
       nom,
       prenom,
       sexe,
-      numero,
+      numero: numeroNormalise,
       email,
       structureId: req.compte.structureId,
       createdByPointFocalId: req.compte.id,
@@ -90,7 +106,7 @@ async function modifier(req, res) {
   }
 
   const { nom, prenom, sexe, numero, email } = req.body;
-
+  const numeroNormalise = normaliserTelephone(numero);
   if (email && email !== agent.email) {
     const emailExistant = await prisma.agent.findUnique({ where: { email } });
 
@@ -101,7 +117,7 @@ async function modifier(req, res) {
 
   const agentMisAJour = await prisma.agent.update({
     where: { matricule: agent.matricule },
-    data: { nom, prenom, sexe, numero, email },
+    data: { nom, prenom, sexe, numero: numeroNormalise, email },
   });
 
   return res.status(200).json({ success: true, message: 'Agent modifie.', data: agentMisAJour });
@@ -208,7 +224,7 @@ async function importerAgents(req, res) {
     const nom = ligne.nom.toString().trim();
     const prenom = ligne.prenom.toString().trim();
     const sexe = ligne.sexe.toString().trim().toUpperCase();
-    const numero = ligne.numero.toString().trim();
+    const numero = normaliserTelephone(ligne.numero);
     const email = ligne.email.toString().trim().toLowerCase();
     const codeStructure = ligne.codestructure.toString().trim().toUpperCase();
 

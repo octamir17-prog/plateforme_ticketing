@@ -85,7 +85,7 @@ export default function VerificationMatricule() {
         </div>
 
         <div className="text-center px-2 flex-1 min-w-0">
-          <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
+          <h1 className="text-[11px] sm:text-lg lg:text-xl font-bold tracking-tight leading-tight" style={{ color: '#15aabf' }}>
             Bienvenue sur votre Plateforme de Ticketing
           </h1>
           <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
@@ -96,7 +96,7 @@ export default function VerificationMatricule() {
         </div>
       </header>
 
-      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center p-4">
+      <div className="flex items-center justify-center p-4 sm:min-h-[calc(100vh-200px)]">
         <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
         
         {/* En-tête */}
