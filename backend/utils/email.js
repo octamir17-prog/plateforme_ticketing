@@ -1,32 +1,32 @@
-const nodemailer = require('nodemailer');
-
 function origineFrontendPourLiens() {
   const brut = process.env.FRONTEND_URL || '';
   const premiere = brut.split(',')[0].trim();
   return premiere;
 }
 
-const transporteur = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
-
 async function envoyer(destinataire, sujet, contenu) {
   try {
-    await transporteur.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: destinataire,
-      subject: sujet,
-      text: contenu,
+    const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender: { email: process.env.EMAIL_FROM },
+        to: [{ email: destinataire }],
+        subject: sujet,
+        textContent: contenu,
+      }),
     });
+
+    if (!reponse.ok) {
+      const erreurTexte = await reponse.text();
+      console.error(`Erreur envoi email (${sujet}) :`, reponse.status, erreurTexte);
+      return false;
+    }
+
     return true;
   } catch (erreur) {
     console.error(`Erreur envoi email (${sujet}) :`, erreur.message);
