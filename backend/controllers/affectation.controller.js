@@ -1,5 +1,11 @@
+// ===== IMPORTS =====
 const prisma = require('../prisma/client');
 const { deriverStatutTicket } = require('../utils/statut');
+
+// ===== CONSTANTES GLOBALES =====
+// (aucune constante supplémentaire, utilitaires suffisent)
+
+// ===== FONCTIONS UTILITAIRES =====
 
 async function mettreAJourStatutTicket(tx, ticketId, technicienId, statutAffectation) {
   const statut = deriverStatutTicket(technicienId, statutAffectation);
@@ -42,6 +48,8 @@ async function chargerAffectation(id) {
     },
   });
 }
+
+// ===== CONTRÔLEURS =====
 
 async function assignerTechnicien(req, res) {
   const { technicienId, priorite } = req.body;
@@ -323,14 +331,6 @@ async function escalader(req, res) {
     return res.status(409).json({ success: false, message: 'La structure cible est la structure actuelle.', errors: [] });
   }
 
-  if (structureCible.niveau.ordre > structureActuelle.niveau.ordre) {
-    return res.status(409).json({
-      success: false,
-      message: 'L\'escalade doit se faire vers une structure de niveau superieur ou de meme niveau.',
-      errors: [],
-    });
-  }
-
   const vientDUneEscalade = affectation.affectationPrecedente && affectation.affectationPrecedente.escalade === true;
   const structureOrigine = vientDUneEscalade ? affectation.affectationPrecedente.responsable.structure : null;
 
@@ -483,4 +483,5 @@ async function retourner(req, res) {
   return res.status(201).json({ success: true, message: 'Ticket retourne a la structure d\'origine.', data: nouvelleAffectation });
 }
 
+// ===== MODULE EXPORTS =====
 module.exports = { assignerTechnicien, demarrer, cloturer, transferer, escalader, retourner };

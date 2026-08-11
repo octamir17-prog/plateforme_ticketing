@@ -1,14 +1,24 @@
+// ===== IMPORTS =====
 const prisma = require('../prisma/client');
 const { TABLE_PAR_ROLE, LIBELLE_ROLE } = require('../utils/roles');
 const { envoyerLienPourEmplacement } = require('../utils/activation');
 
-function statutEmplacement(compte) {
+// ===== CONSTANTES GLOBALES =====
+// (aucune constante globale supplémentaire, utils et prisma suffisent)
+
+// ===== FONCTIONS UTILITAIRES =====
+
+function statutEmplacement(compte, role) {
   if (compte.motdepasse) {
     return 'ACTIVE';
   }
 
   if (compte.agentMatricule) {
     return 'ATTRIBUE';
+  }
+
+  if (role === 'TECHNICIEN') {
+    return 'LIBRE_DEFINITIF';
   }
 
   return 'LIBRE';
@@ -18,6 +28,8 @@ function retirerChampsSensibles(compte) {
   const { motdepasse, tokenActivation, tokenActivationExpiration, ...reste } = compte;
   return reste;
 }
+
+// ===== CONTRÔLEURS =====
 
 async function listerEmplacements(req, res) {
   const { role, codeStructure, statut } = req.query;
@@ -47,7 +59,9 @@ async function listerEmplacements(req, res) {
 
     const emplacements = await table.findMany({
       where,
-      include: roleCourant === 'TECHNICIEN' ? { responsable: { include: { structure: true } } } : { structure: true },
+      include: roleCourant === 'TECHNICIEN'
+        ? { responsable: { include: { structure: true } }, agent: true }
+        : { structure: true, agent: true },
       orderBy: { username: 'asc' },
     });
 
@@ -56,23 +70,32 @@ async function listerEmplacements(req, res) {
         id: emplacement.id,
         username: emplacement.username,
         role: roleCourant,
-        statut: statutEmplacement(emplacement),
+        statut: statutEmplacement(emplacement, roleCourant),
         structure: roleCourant === 'TECHNICIEN' ? emplacement.responsable.structure : emplacement.structure,
         agentMatricule: emplacement.agentMatricule,
+        agent: emplacement.agent ? { nom: emplacement.agent.nom, prenom: emplacement.agent.prenom } : null,
       }))
     );
   }
 
+  donnees = donnees.filter((emplacement) => emplacement.statut !== 'LIBRE');
   donnees = donnees.filter((emplacement) => !statut || emplacement.statut === statut);
+
+  const ordreStatut = { ACTIVE: 0, ATTRIBUE: 1, LIBRE: 2, LIBRE_DEFINITIF: 3 };
+  donnees.sort((a, b) => (ordreStatut[a.statut] ?? 99) - (ordreStatut[b.statut] ?? 99));
 
   return res.status(200).json({ success: true, data: donnees });
 }
 
-async function creerEmplacement(req, res) {
-  const { role, codeStructure } = req.body;
+async function designer(req, res) {
+  const { role, codeStructure, agentMatricule } = req.body;
 
-  if (!role || !TABLE_PAR_ROLE[role] || !codeStructure) {
-    return res.status(400).json({ success: false, message: 'Role et structure sont obligatoires.', errors: [] });
+  if (!role || !TABLE_PAR_ROLE[role] || !codeStructure || !agentMatricule) {
+    return res.status(400).json({
+      success: false,
+      message: 'role, codeStructure et agentMatricule sont obligatoires.',
+      errors: [],
+    });
   }
 
   const structure = await prisma.structure.findUnique({ where: { codeStructure } });
@@ -81,107 +104,96 @@ async function creerEmplacement(req, res) {
     return res.status(404).json({ success: false, message: 'Structure introuvable.', errors: [] });
   }
 
-  if (role === 'RESPONSABLE' || role === 'POINT_FOCAL') {
-    const table = TABLE_PAR_ROLE[role]();
-    const existant = await table.findUnique({ where: { structureId: structure.id } });
-
-    if (existant) {
-      return res.status(409).json({
-        success: false,
-        message: `Cette structure a deja un emplacement ${LIBELLE_ROLE[role]}.`,
-        errors: [],
-      });
-    }
-
-    const suffixe = role === 'POINT_FOCAL' ? 'PF' : 'RES';
-
-    const emplacement = await table.create({
-      data: { username: `${codeStructure}-${suffixe}1`, structureId: structure.id },
-    });
-
-    return res.status(201).json({ success: true, message: 'Emplacement cree.', data: emplacement });
-  }
-
-  const responsable = await prisma.responsableEquipeTechnique.findUnique({ where: { structureId: structure.id } });
-
-  if (!responsable) {
-    return res.status(409).json({
-      success: false,
-      message: 'Cette structure n\'a pas encore d\'emplacement Responsable.',
-      errors: [],
-    });
-  }
-
-  const techniciensExistants = await prisma.technicien.count({ where: { responsableId: responsable.id } });
-
-  const emplacement = await prisma.technicien.create({
-    data: { username: `${codeStructure}-TEC${techniciensExistants + 1}`, responsableId: responsable.id },
-  });
-
-  return res.status(201).json({ success: true, message: 'Emplacement cree.', data: emplacement });
-}
-
-async function attribuer(req, res) {
-  const { agentMatricule, role, username } = req.body;
-
-  if (!agentMatricule || !role || !TABLE_PAR_ROLE[role] || !username) {
-    return res.status(400).json({ success: false, message: 'agentMatricule, role et username sont obligatoires.', errors: [] });
-  }
-
   const agent = await prisma.agent.findUnique({ where: { matricule: Number(agentMatricule) } });
 
   if (!agent || !agent.actif) {
     return res.status(404).json({ success: false, message: 'Agent introuvable ou inactif.', errors: [] });
   }
 
-  const table = TABLE_PAR_ROLE[role]();
-  const emplacement = await table.findUnique({ where: { username } });
-
-  if (!emplacement) {
-    return res.status(404).json({ success: false, message: 'Emplacement introuvable.', errors: [] });
-  }
-
-  let structureEmplacementId;
-
-  if (role === 'TECHNICIEN') {
-    const responsableDeLEmplacement = await prisma.responsableEquipeTechnique.findUnique({
-      where: { id: emplacement.responsableId },
-    });
-    structureEmplacementId = responsableDeLEmplacement.structureId;
-  } else {
-    structureEmplacementId = emplacement.structureId;
-  }
-
-  if (agent.structureId !== structureEmplacementId) {
+  if (agent.structureId !== structure.id) {
     return res.status(409).json({
       success: false,
-      message: 'Cet agent n\'appartient pas a la structure de cet emplacement.',
+      message: "Cet agent n'appartient pas a la structure choisie.",
       errors: [],
     });
   }
 
-  if (emplacement.agentMatricule) {
-    return res.status(409).json({ success: false, message: 'Cet emplacement est deja attribue.', errors: [] });
+  const table = TABLE_PAR_ROLE[role]();
+
+  // Cas RESPONSABLE / POINT_FOCAL : 1 emplacement par structure (contrainte unique)
+  if (role === 'RESPONSABLE' || role === 'POINT_FOCAL') {
+    const dejaTitulaire = await table.findUnique({ where: { agentMatricule: agent.matricule } });
+
+    if (dejaTitulaire) {
+      return res.status(409).json({
+        success: false,
+        message: `Cet agent detient deja un compte ${LIBELLE_ROLE[role]}.`,
+        errors: [],
+      });
+    }
+
+    let emplacement = await table.findUnique({ where: { structureId: structure.id } });
+
+    if (emplacement && emplacement.agentMatricule) {
+      return res.status(409).json({
+        success: false,
+        message: `Cette structure a deja un ${LIBELLE_ROLE[role]} designe.`,
+        errors: [],
+      });
+    }
+
+    if (emplacement) {
+      emplacement = await table.update({
+        where: { id: emplacement.id },
+        data: { agentMatricule: agent.matricule, telephone: agent.numero, username: `PENDING-${emplacement.id}` },
+      });
+    } else {
+      emplacement = await table.create({
+        data: { structureId: structure.id, agentMatricule: agent.matricule, telephone: agent.numero, username: `PENDING-${structure.id}-${role}` },
+      });
+    }
+
+    const emailEnvoye = await envoyerLienPourEmplacement(role, emplacement.id);
+
+    return res.status(201).json({
+      success: true,
+      message: emailEnvoye
+        ? 'Agent designe, lien d\'activation envoye.'
+        : 'Agent designe, mais l\'envoi de l\'email a echoue. Utilisez "Renvoyer le lien" ou verifiez la configuration Brevo.',
+      data: { emailEnvoye },
+    });
   }
 
-  const dejaTitulaire = await table.findUnique({ where: { agentMatricule: agent.matricule } });
+  // Cas TECHNICIEN : plusieurs par responsable, pas de contrainte unique sur structureId
+  const responsable = await prisma.responsableEquipeTechnique.findUnique({ where: { structureId: structure.id } });
+
+  if (!responsable) {
+    return res.status(409).json({
+      success: false,
+      message: "Cette structure n'a pas encore de Responsable designe.",
+      errors: [],
+    });
+  }
+
+  const dejaTitulaire = await prisma.technicien.findUnique({ where: { agentMatricule: agent.matricule } });
 
   if (dejaTitulaire) {
-    return res.status(409).json({
-      success: false,
-      message: `Cet agent detient deja un compte ${LIBELLE_ROLE[role]}.`,
-      errors: [],
-    });
+    return res.status(409).json({ success: false, message: 'Cet agent detient deja un compte Technicien.', errors: [] });
   }
 
-  await table.update({
-    where: { id: emplacement.id },
-    data: { agentMatricule: agent.matricule, telephone: agent.numero },
+  const emplacement = await prisma.technicien.create({
+    data: { responsableId: responsable.id, agentMatricule: agent.matricule, telephone: agent.numero, username: `PENDING-${structure.id}-TEC-${Date.now()}` },
   });
 
-  await envoyerLienPourEmplacement(role, emplacement.id);
+  const emailEnvoye = await envoyerLienPourEmplacement('TECHNICIEN', emplacement.id);
 
-  return res.status(200).json({ success: true, message: 'Agent rattache, lien d\'activation envoye.' });
+  return res.status(201).json({
+    success: true,
+    message: emailEnvoye
+      ? 'Agent designe, lien d\'activation envoye.'
+      : 'Agent designe, mais l\'envoi de l\'email a echoue. Utilisez "Renvoyer le lien" ou verifiez la configuration Brevo.',
+    data: { emailEnvoye },
+  });
 }
 
 async function renvoyerLien(req, res) {
@@ -199,13 +211,20 @@ async function renvoyerLien(req, res) {
   }
 
   if (!emplacement.agentMatricule) {
-    return res.status(409).json({ success: false, message: 'Cet emplacement n\'est rattache a aucun agent.', errors: [] });
+    return res.status(409).json({ success: false, message: "Cet emplacement n'est rattache a aucun agent.", errors: [] });
   }
 
   await table.update({ where: { id: emplacement.id }, data: { motdepasse: null } });
-  await envoyerLienPourEmplacement(role, emplacement.id);
 
-  return res.status(200).json({ success: true, message: 'Nouveau lien envoye.' });
+  const emailEnvoye = await envoyerLienPourEmplacement(role, emplacement.id);
+
+  return res.status(200).json({
+    success: true,
+    message: emailEnvoye
+      ? 'Nouveau lien envoye.'
+      : 'L\'envoi du lien a echoue. Verifiez la configuration Brevo.',
+    data: { emailEnvoye },
+  });
 }
 
 async function liberer(req, res) {
@@ -234,6 +253,36 @@ async function liberer(req, res) {
   });
 
   return res.status(200).json({ success: true, message: 'Emplacement libere.' });
+}
+
+async function supprimerEmplacement(req, res) {
+  const { role, username } = req.body;
+
+  if (!role || !TABLE_PAR_ROLE[role] || !username) {
+    return res.status(400).json({ success: false, message: 'Role et username sont obligatoires.', errors: [] });
+  }
+
+  const table = TABLE_PAR_ROLE[role]();
+  const emplacement = await table.findUnique({ where: { username } });
+
+  if (!emplacement) {
+    return res.status(404).json({ success: false, message: 'Emplacement introuvable.', errors: [] });
+  }
+
+  if (role === 'RESPONSABLE') {
+    const techniciensRattaches = await prisma.technicien.count({ where: { responsableId: emplacement.id } });
+    if (techniciensRattaches > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Impossible de supprimer : des techniciens sont encore rattaches a ce responsable.',
+        errors: [],
+      });
+    }
+  }
+
+  await table.delete({ where: { id: emplacement.id } });
+
+  return res.status(200).json({ success: true, message: 'Emplacement supprime.' });
 }
 
 async function listerResponsables(req, res) {
@@ -358,12 +407,13 @@ async function reactiverPointFocal(req, res) {
   return res.status(200).json({ success: true, message: 'Point focal reactive.' });
 }
 
+// ===== MODULE EXPORTS =====
 module.exports = {
   listerEmplacements,
-  creerEmplacement,
-  attribuer,
+  designer,
   renvoyerLien,
   liberer,
+  supprimerEmplacement,
   listerResponsables,
   listerTechniciens,
   listerPointsFocaux,

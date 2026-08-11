@@ -1,7 +1,11 @@
+// ===== IMPORTS =====
 const XLSX = require('xlsx');
 const prisma = require('../prisma/client');
 
+// ===== CONSTANTES GLOBALES =====
 const COLONNES_OBLIGATOIRES = ['matricule', 'nom', 'prenom', 'sexe', 'numero', 'email', 'codestructure'];
+
+// ===== FONCTIONS UTILITAIRES =====
 
 function normaliserEntete(entete) {
   return entete.toString().trim().toLowerCase().replace(/\s+/g, '');
@@ -44,6 +48,18 @@ function validerEntetes(lignesBrutes) {
   const entetesManquantes = COLONNES_OBLIGATOIRES.filter((colonne) => !entetesTrouvees.includes(colonne));
   return entetesManquantes;
 }
+
+async function agentADesRolesStaffActifs(matricule) {
+  const [responsable, technicien, pointFocal] = await Promise.all([
+    prisma.responsableEquipeTechnique.findFirst({ where: { agentMatricule: matricule, actif: true } }),
+    prisma.technicien.findFirst({ where: { agentMatricule: matricule, actif: true } }),
+    prisma.pointFocal.findFirst({ where: { agentMatricule: matricule, actif: true } }),
+  ]);
+
+  return Boolean(responsable || technicien || pointFocal);
+}
+
+// ===== CONTRÔLEURS =====
 
 async function creer(req, res) {
   const { matricule, nom, prenom, sexe, numero, email } = req.body;
@@ -95,7 +111,10 @@ async function lister(req, res) {
 }
 
 async function modifier(req, res) {
-  const agent = await prisma.agent.findUnique({ where: { matricule: Number(req.params.matricule) } });
+  const ancienMatricule = Number(req.params.matricule);
+  const { nom, prenom, sexe, numero, email, nouveauMatricule } = req.body;
+
+  const agent = await prisma.agent.findUnique({ where: { matricule: ancienMatricule } });
 
   if (!agent) {
     return res.status(404).json({ success: false, message: 'Agent introuvable.', errors: [] });
@@ -105,8 +124,18 @@ async function modifier(req, res) {
     return res.status(403).json({ success: false, message: 'Cet agent n\'appartient pas a votre structure.', errors: [] });
   }
 
-  const { nom, prenom, sexe, numero, email } = req.body;
-  const numeroNormalise = normaliserTelephone(numero);
+  // Si le nouveau matricule est fourni, vérifier qu'il n'existe pas
+  if (nouveauMatricule && Number(nouveauMatricule) !== ancienMatricule) {
+    const matriculeExistant = await prisma.agent.findUnique({
+      where: { matricule: Number(nouveauMatricule) },
+    });
+
+    if (matriculeExistant) {
+      return res.status(409).json({ success: false, message: 'Ce matricule existe deja.', errors: [] });
+    }
+  }
+
+  // Vérifier email unique
   if (email && email !== agent.email) {
     const emailExistant = await prisma.agent.findUnique({ where: { email } });
 
@@ -115,9 +144,47 @@ async function modifier(req, res) {
     }
   }
 
-  const agentMisAJour = await prisma.agent.update({
-    where: { matricule: agent.matricule },
-    data: { nom, prenom, sexe, numero: numeroNormalise, email },
+  const numeroNormalise = normaliserTelephone(numero);
+  const matriculeFinal = nouveauMatricule ? Number(nouveauMatricule) : ancienMatricule;
+
+  // Transaction pour mettre à jour Agent et propager le changement de matricule aux comptes associés
+  const agentMisAJour = await prisma.$transaction(async (tx) => {
+    const agentUpdated = await tx.agent.update({
+      where: { matricule: ancienMatricule },
+      data: {
+        matricule: matriculeFinal,
+        nom,
+        prenom,
+        sexe,
+        numero: numeroNormalise,
+        email,
+      },
+    });
+
+    // Si le matricule a changé, mettre à jour les comptes associés (cascade)
+    if (matriculeFinal !== ancienMatricule) {
+      await tx.utilisateur.updateMany({
+        where: { agentMatricule: ancienMatricule },
+        data: { agentMatricule: matriculeFinal },
+      });
+
+      await tx.responsableEquipeTechnique.updateMany({
+        where: { agentMatricule: ancienMatricule },
+        data: { agentMatricule: matriculeFinal },
+      });
+
+      await tx.technicien.updateMany({
+        where: { agentMatricule: ancienMatricule },
+        data: { agentMatricule: matriculeFinal },
+      });
+
+      await tx.pointFocal.updateMany({
+        where: { agentMatricule: ancienMatricule },
+        data: { agentMatricule: matriculeFinal },
+      });
+    }
+
+    return agentUpdated;
   });
 
   return res.status(200).json({ success: true, message: 'Agent modifie.', data: agentMisAJour });
@@ -132,6 +199,16 @@ async function desactiver(req, res) {
 
   if (agent.structureId !== req.compte.structureId) {
     return res.status(403).json({ success: false, message: 'Cet agent n\'appartient pas a votre structure.', errors: [] });
+  }
+
+  const aUnRoleStaffActif = await agentADesRolesStaffActifs(agent.matricule);
+
+  if (aUnRoleStaffActif) {
+    return res.status(409).json({
+      success: false,
+      message: 'Cet agent detient un role staff actif (Responsable, Technicien ou Point focal). Seul un administrateur peut desactiver ce role avant que l\'agent puisse etre desactive.',
+      errors: [],
+    });
   }
 
   await prisma.agent.update({
@@ -294,4 +371,50 @@ async function importerAgents(req, res) {
   });
 }
 
-module.exports = { creer, lister, modifier, desactiver, reactiver, importerAgents };
+async function listerTous(req, res) {
+  const agents = await prisma.agent.findMany({
+    include: {
+      structure: true,
+      utilisateur: { select: { id: true, username: true, actif: true } },
+      responsable: { select: { id: true, username: true, actif: true } },
+      technicien: { select: { id: true, username: true, actif: true } },
+      pointFocal: { select: { id: true, username: true, actif: true } },
+    },
+    orderBy: { nom: 'asc' },
+  });
+
+  return res.status(200).json({
+    success: true,
+    data: agents.map((agent) => {
+      const { utilisateur, responsable, technicien, pointFocal, structure, ...reste } = agent;
+
+      let role = null;
+      let roleActif = null;
+
+      if (utilisateur) {
+        role = 'UTILISATEUR';
+        roleActif = utilisateur.actif;
+      } else if (responsable) {
+        role = 'RESPONSABLE';
+        roleActif = responsable.actif;
+      } else if (technicien) {
+        role = 'TECHNICIEN';
+        roleActif = technicien.actif;
+      } else if (pointFocal) {
+        role = 'POINT_FOCAL';
+        roleActif = pointFocal.actif;
+      }
+
+      return {
+        ...reste,
+        structureCode: structure?.codeStructure || null,
+        structureDesignation: structure?.designation || null,
+        role,
+        roleActif,
+      };
+    }),
+  });
+}
+
+// ===== MODULE EXPORTS =====
+module.exports = { creer, lister, listerTous, modifier, desactiver, reactiver, importerAgents };

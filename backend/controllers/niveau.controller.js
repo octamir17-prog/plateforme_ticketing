@@ -27,4 +27,33 @@ async function creer(req, res) {
   return res.status(201).json({ success: true, message: 'Niveau cree.', data: niveau });
 }
 
-module.exports = { lister, creer };
+async function modifier(req, res) {
+  const { libelle, ordre } = req.body;
+
+  if (!libelle || ordre === undefined) {
+    return res.status(400).json({ success: false, message: 'Libelle et ordre obligatoires.', errors: [] });
+  }
+
+  const niveau = await prisma.niveau.update({
+    where: { id: Number(req.params.id) },
+    data: { libelle, ordre: Number(ordre) },
+  });
+
+  return res.status(200).json({ success: true, message: 'Niveau modifie.', data: niveau });
+}
+
+async function supprimer(req, res) {
+  const niveauId = Number(req.params.id);
+
+  const structuresLiees = await prisma.structure.count({ where: { niveauId } });
+
+  if (structuresLiees > 0) {
+    return res.status(409).json({ success: false, message: 'Impossible de supprimer un niveau utilisé par une structure.', errors: [] });
+  }
+
+  await prisma.niveau.delete({ where: { id: niveauId } });
+
+  return res.status(200).json({ success: true, message: 'Niveau supprimé.' });
+}
+
+module.exports = { lister, creer, modifier, supprimer };

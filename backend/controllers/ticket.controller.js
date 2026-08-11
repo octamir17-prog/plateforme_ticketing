@@ -1,13 +1,64 @@
+// ===== IMPORTS =====
 const prisma = require('../prisma/client');
 const { envoyerRelanceManuelle } = require('../utils/email');
 
+// ===== CONSTANTES GLOBALES =====
 const DELAI_RELANCE_HEURES = 24;
-
 const LIGNE_ACTIVE = { transfere: false, escalade: false, retourne: false };
+
+// ===== FONCTIONS UTILITAIRES =====
 
 function genererReference() {
   return `TCK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
+
+function formaterLigneAdmin(affectation) {
+  return {
+    ...affectation.ticket,
+    affectation: {
+      id: affectation.id,
+      statut: affectation.statut,
+      priorite: affectation.priorite,
+      dateAffectation: affectation.dateAffectation,
+      dateDebutTrait: affectation.dateDebutTrait,
+      dateFinTrait: affectation.dateFinTrait,
+      technicienId: affectation.technicienId,
+      technicien: affectation.technicien,
+      responsableId: affectation.responsableId,
+      responsable: affectation.responsable
+        ? {
+            id: affectation.responsable.id,
+            username: affectation.responsable.username,
+            structureCode: affectation.responsable.structure?.codeStructure || null,
+            structureDesignation: affectation.responsable.structure?.designation || null,
+          }
+        : null,
+      commentaire: affectation.commentaire,
+      recuParEscalade: affectation.affectationPrecedente ? affectation.affectationPrecedente.escalade : false,
+    },
+  };
+}
+
+function formaterLigne(affectation) {
+  return {
+    ...affectation.ticket,
+    affectation: {
+      id: affectation.id,
+      statut: affectation.statut,
+      priorite: affectation.priorite,
+      dateAffectation: affectation.dateAffectation,
+      dateDebutTrait: affectation.dateDebutTrait,
+      dateFinTrait: affectation.dateFinTrait,
+      technicienId: affectation.technicienId,
+      technicien: affectation.technicien,
+      responsableId: affectation.responsableId,
+      commentaire: affectation.commentaire,
+      recuParEscalade: affectation.affectationPrecedente ? affectation.affectationPrecedente.escalade : false,
+    },
+  };
+}
+
+// ===== CONTRÔLEURS =====
 
 async function creer(req, res) {
   const { titre, description, categorieId } = req.body;
@@ -79,25 +130,6 @@ async function listerPourUtilisateur(req, res) {
   return res.status(200).json({ success: true, data: tickets });
 }
 
-function formaterLigne(affectation) {
-  return {
-    ...affectation.ticket,
-    affectation: {
-      id: affectation.id,
-      statut: affectation.statut,
-      priorite: affectation.priorite,
-      dateAffectation: affectation.dateAffectation,
-      dateDebutTrait: affectation.dateDebutTrait,
-      dateFinTrait: affectation.dateFinTrait,
-      technicienId: affectation.technicienId,
-      technicien: affectation.technicien,
-      responsableId: affectation.responsableId,
-      commentaire: affectation.commentaire,
-      recuParEscalade: affectation.affectationPrecedente ? affectation.affectationPrecedente.escalade : false,
-    },
-  };
-}
-
 async function listerPourResponsable(req, res) {
   const affectations = await prisma.affectation.findMany({
     where: {
@@ -142,6 +174,33 @@ async function listerPourTechnicien(req, res) {
   return res.status(200).json({ success: true, data: affectations.map(formaterLigne) });
 }
 
+async function listerPourAdmin(req, res) {
+  const affectations = await prisma.affectation.findMany({
+    where: { ...LIGNE_ACTIVE },
+    include: {
+      ticket: {
+        include: {
+          categorie: true,
+          agent: { select: { matricule: true, nom: true, prenom: true, numero: true, structureId: true } },
+        },
+      },
+      technicien: { select: { id: true, username: true } },
+      responsable: {
+        select: {
+          id: true,
+          username: true,
+          structureId: true,
+          structure: { select: { codeStructure: true, designation: true } },
+        },
+      },
+      affectationPrecedente: { select: { escalade: true } },
+    },
+    orderBy: { id: 'desc' },
+  });
+
+  return res.status(200).json({ success: true, data: affectations.map(formaterLigneAdmin) });
+}
+
 async function lister(req, res) {
   if (req.compte.typeCompte === 'UTILISATEUR') {
     return listerPourUtilisateur(req, res);
@@ -153,6 +212,10 @@ async function lister(req, res) {
 
   if (req.compte.typeCompte === 'TECHNICIEN') {
     return listerPourTechnicien(req, res);
+  }
+
+  if (req.compte.typeCompte === 'ADMIN') {
+    return listerPourAdmin(req, res);
   }
 
   return res.status(403).json({ success: false, message: 'Ce type de compte ne consulte pas de tickets.', errors: [] });
@@ -226,7 +289,7 @@ async function relancer(req, res) {
     if (prochaineRelancePossible > new Date()) {
       return res.status(429).json({
         success: false,
-        message: `Vous ne pouvez relancer qu'une fois toutes les ${DELAI_RELANCE_HEURES} heures pour ce ticket.`,
+        message: 'Vous avez deja relance ce ticket recemment. Une seule relance est possible toutes les 24 heures, votre ticket sera pris en charge dans les plus brefs delais.',
         errors: [],
       });
     }
@@ -265,4 +328,5 @@ async function relancer(req, res) {
   return res.status(200).json({ success: true, message: 'Relance envoyee au responsable.' });
 }
 
+// ===== MODULE EXPORTS =====
 module.exports = { creer, lister, obtenir, relancer };

@@ -91,7 +91,6 @@ async function supprimer(req, res) {
 async function escaladables(req, res) {
   const structure = await prisma.structure.findUnique({
     where: { id: Number(req.params.id) },
-    include: { niveau: true },
   });
 
   if (!structure) {
@@ -99,12 +98,9 @@ async function escaladables(req, res) {
   }
 
   const structures = await prisma.structure.findMany({
-    where: {
-      id: { not: structure.id },
-      niveau: { ordre: { lte: structure.niveau.ordre } },
-    },
+    where: { id: { not: structure.id } },
     include: { type: true, niveau: true },
-    orderBy: { niveau: { ordre: 'asc' } },
+    orderBy: { designation: 'asc' },
   });
 
   return res.status(200).json({ success: true, data: structures.map(masquerOrdre) });

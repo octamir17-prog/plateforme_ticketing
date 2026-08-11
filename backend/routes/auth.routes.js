@@ -16,6 +16,9 @@ routeur.post('/login', controleur.login);
 routeur.post('/refresh', controleur.refresh);
 routeur.post('/logout', authentifier, controleur.logout);
 routeur.get('/me', authentifier, controleur.moi);
+routeur.post('/mot-de-passe-oublie/demander', controleur.demanderReinitialisationMotDePasse);
+routeur.post('/mot-de-passe-oublie/verifier', controleur.verifierReinitialisationMotDePasse);
+routeur.post('/mot-de-passe-oublie/finaliser', controleur.finaliserReinitialisationMotDePasse);
 routeur.put('/changer-mot-de-passe', authentifier, controleur.changerMotDePasse);
 
 module.exports = routeur;

@@ -6,8 +6,6 @@ const { PrismaPg } = require('@prisma/adapter-pg');
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const NB_TECHNICIENS_PAR_STRUCTURE = 3;
-
 const niveauxMetier = [
   { libelle: 'Central (National)', ordre: 1 },
   { libelle: 'Intermediaire (Departemental)', ordre: 2 },
@@ -128,42 +126,6 @@ async function creerDonneesReference() {
   return structuresParCode;
 }
 
-async function creerEmplacements(structuresParCode) {
-  let nombreEmplacements = 0;
-
-  for (const code of Object.keys(structuresParCode)) {
-    const structure = structuresParCode[code];
-
-    await prisma.pointFocal.create({
-      data: {
-        username: `${code}-PF1`,
-        structureId: structure.id,
-      },
-    });
-    nombreEmplacements = nombreEmplacements + 1;
-
-    const responsable = await prisma.responsableEquipeTechnique.create({
-      data: {
-        username: `${code}-RES1`,
-        structureId: structure.id,
-      },
-    });
-    nombreEmplacements = nombreEmplacements + 1;
-
-    for (let numero = 1; numero <= NB_TECHNICIENS_PAR_STRUCTURE; numero++) {
-      await prisma.technicien.create({
-        data: {
-          username: `${code}-TEC${numero}`,
-          responsableId: responsable.id,
-        },
-      });
-      nombreEmplacements = nombreEmplacements + 1;
-    }
-  }
-
-  return nombreEmplacements;
-}
-
 async function main() {
   const nombreAdmins = await prisma.admin.count();
 
@@ -176,12 +138,10 @@ async function main() {
 
   const structuresParCode = await creerDonneesReference();
   const admin = await creerAdmin();
-  const nombreEmplacements = await creerEmplacements(structuresParCode);
 
   console.log('=== SEED TERMINE ===');
   console.log(`Structures     : ${Object.keys(structuresParCode).length}`);
   console.log(`Categories     : ${categoriesMetier.length}`);
-  console.log(`Emplacements   : ${nombreEmplacements}`);
   console.log('');
   console.log(`Administrateur : ${admin.username}`);
 
@@ -196,8 +156,7 @@ async function main() {
   }
 
   console.log('');
-  console.log('Emplacements libres : CODE-PF1, CODE-RES1, CODE-TEC1 a TEC3');
-  console.log('Escalade testable   : CSA (niveau 3) vers DSI (niveau 1)');
+  console.log('Aucun compte staff pre-cree. A creer via l\'interface Admin (Nouveau compte).');
 }
 
 main()

@@ -7,6 +7,7 @@ const uploadExcel = require('../middlewares/Importexcel.middleware');
 routeur.use(authentifier);
 
 routeur.post('/import', autoriser('ADMIN'), uploadExcel.single('fichier'), controleur.importerAgents);
+routeur.get('/tous', autoriser('ADMIN'), controleur.listerTous);
 
 routeur.post('/', autoriser('POINT_FOCAL'), controleur.creer);
 routeur.get('/', autoriser('POINT_FOCAL'), controleur.lister);

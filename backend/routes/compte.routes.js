@@ -6,10 +6,11 @@ const { authentifier, autoriser } = require('../middlewares/auth.middleware');
 routeur.use(authentifier);
 
 routeur.get('/comptes/emplacements', autoriser('ADMIN'), controleur.listerEmplacements);
-routeur.post('/comptes/emplacements', autoriser('ADMIN'), controleur.creerEmplacement);
-routeur.post('/comptes/attribuer', autoriser('ADMIN'), controleur.attribuer);
+routeur.post('/comptes/emplacements', autoriser('ADMIN'), controleur.designer);
+routeur.post('/comptes/attribuer', autoriser('ADMIN'), controleur.designer);
 routeur.post('/comptes/renvoyer-lien', autoriser('ADMIN'), controleur.renvoyerLien);
 routeur.patch('/comptes/liberer', autoriser('ADMIN'), controleur.liberer);
+routeur.delete('/comptes', autoriser('ADMIN'), controleur.supprimerEmplacement);
 
 routeur.get('/responsables', autoriser('ADMIN'), controleur.listerResponsables);
 routeur.patch('/responsables/:id/desactiver', autoriser('ADMIN'), controleur.desactiverResponsable);

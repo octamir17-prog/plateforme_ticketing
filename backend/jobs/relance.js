@@ -1,8 +1,12 @@
+// ===== IMPORTS =====
 const cron = require('node-cron');
 const prisma = require('../prisma/client');
 const { envoyerRelanceAutomatique } = require('../utils/email');
 
+// ===== CONSTANTES =====
 const DELAI_JOURS = 2;
+
+// ===== FONCTIONS UTILITAIRES =====
 
 async function verifierRetards() {
   const seuil = new Date();
@@ -61,9 +65,12 @@ async function verifierRetards() {
   }
 }
 
+// ===== FONCTIONS PUBLIQUES =====
+
 function demarrerTacheRelance() {
   cron.schedule('0 * * * *', verifierRetards);
   console.log('Tache de relance demarree (verification toutes les heures).');
 }
 
+// ===== EXPORTS =====
 module.exports = { demarrerTacheRelance, verifierRetards };

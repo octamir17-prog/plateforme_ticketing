@@ -1,4 +1,7 @@
+// ===== IMPORTS =====
 const prisma = require('../prisma/client');
+
+// ===== CONSTANTES GLOBALES =====
 
 const TABLE_PAR_ROLE = {
   RESPONSABLE: () => prisma.responsableEquipeTechnique,
@@ -11,6 +14,14 @@ const LIBELLE_ROLE = {
   TECHNICIEN: 'Technicien',
   POINT_FOCAL: 'Point focal',
 };
+
+const PREFIXE_PAR_ROLE = {
+  RESPONSABLE: 'RES-',
+  TECHNICIEN: 'TEC-',
+  POINT_FOCAL: 'PTF-',
+};
+
+// ===== FONCTIONS UTILITAIRES =====
 
 function inclusionPourRole(role) {
   if (role === 'TECHNICIEN') {
@@ -28,4 +39,5 @@ function extraireStructure(role, compte) {
   return compte.structure;
 }
 
-module.exports = { TABLE_PAR_ROLE, LIBELLE_ROLE, inclusionPourRole, extraireStructure };
+// ===== MODULE EXPORTS =====
+module.exports = { TABLE_PAR_ROLE, LIBELLE_ROLE, PREFIXE_PAR_ROLE, inclusionPourRole, extraireStructure };
