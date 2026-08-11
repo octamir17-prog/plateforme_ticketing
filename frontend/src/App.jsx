@@ -6,6 +6,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import StaffActivation from './pages/auth/StaffActivation';
 import StaffLogin from './pages/auth/StaffLogin';
+import PasswordResetFlow from './pages/auth/PasswordResetFlow';
 import CreateTicket from './components/tickets/CreateTicket';
 import Home from './pages/Home';
 import UtilisateurDashboard from './pages/dashboards/UtilisateurDashboard';
@@ -20,6 +21,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<VerificationMatricule />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/mot-de-passe-oublie" element={<PasswordResetFlow />} />
         <Route path="/inscription" element={<Register />} />
 
         {/* Liens d'activation et de connexion staff */}

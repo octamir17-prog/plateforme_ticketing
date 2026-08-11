@@ -2,8 +2,10 @@ import api from './api';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const authService = {
-  login: async (username, motdepasse) => {
-    const res = await api.post('/auth/login', { username, motdepasse });
+  login: async (username, motdepasse, typeCompte) => {
+    const body = { username, motdepasse };
+    if (typeCompte) body.typeCompte = typeCompte;
+    const res = await api.post('/auth/login', body);
     const payload = res.data?.data || res.data;
     if (payload?.accessToken) {
       useAuthStore.getState().loginSuccess(payload);
@@ -11,8 +13,10 @@ export const authService = {
     return payload;
   },
 
-  verifyAgent: async (matricule, numeroTelephone) => {
-    const res = await api.post('/auth/verifier-agent', { matricule, numeroTelephone });
+  verifyAgent: async (matricule, numeroTelephone, structureId) => {
+    const payload = { matricule, numeroTelephone };
+    if (structureId) payload.structureId = structureId;
+    const res = await api.post('/auth/verifier-agent', payload);
     return res.data?.data || res.data;
   },
 
@@ -38,18 +42,41 @@ export const authService = {
 
   logout: async () => {
     const refreshToken = sessionStorage.getItem('refreshToken');
+    const typeCompte = sessionStorage.getItem('typeCompte');
     try {
       if (refreshToken) {
         await api.post('/auth/logout', { refreshToken });
       }
     } finally {
       sessionStorage.clear();
-      window.location.href = '/connexion-staff';
+      window.location.href = typeCompte === 'UTILISATEUR' ? '/login' : '/connexion-staff';
     }
   },
 
   getMe: async () => {
     const res = await api.get('/auth/me');
+    return res.data?.data || res.data;
+  },
+
+  requestPasswordReset: async ({ typeCompte, username, telephone, structure }) => {
+    const payload = { typeCompte, username, telephone };
+    if (structure) payload.structure = structure;
+    const res = await api.post('/auth/mot-de-passe-oublie/demander', payload);
+    return res.data?.data || res.data;
+  },
+
+  verifyPasswordReset: async ({ typeCompte, username, code }) => {
+    const res = await api.post('/auth/mot-de-passe-oublie/verifier', { typeCompte, username, code });
+    return res.data?.data || res.data;
+  },
+
+  finalizePasswordReset: async ({ typeCompte, username, code, nouveauMotDePasse }) => {
+    const res = await api.post('/auth/mot-de-passe-oublie/finaliser', { typeCompte, username, code, nouveauMotDePasse });
+    return res.data?.data || res.data;
+  },
+
+  changePassword: async (ancienMotDePasse, nouveauMotDePasse) => {
+    const res = await api.put('/auth/changer-mot-de-passe', { ancienMotDePasse, nouveauMotDePasse });
     return res.data?.data || res.data;
   },
 

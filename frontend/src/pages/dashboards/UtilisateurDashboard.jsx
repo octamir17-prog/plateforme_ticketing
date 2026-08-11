@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban,
@@ -8,8 +8,13 @@ import {
   Search,
   Send,
   Inbox,
+  AlertCircle,
+  Clock,
+  X,
 } from 'lucide-react';
 import api from '../../services/api';
+import { authService } from '../../services/workflowService';
+import DashboardHeader from '../../components/layout/DashboardHeader';
 
 export default function UtilisateurDashboard() {
   const navigate = useNavigate();
@@ -19,10 +24,12 @@ export default function UtilisateurDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [feedback, setFeedback] = useState('');
   const [tickets, setTickets] = useState([]);
   const [stats, setStats] = useState({ total: 0, soumis: 0, enCours: 0, clotures: 0 });
+  const [toast, setToast] = useState(null);
+  const [ticketsAvertis, setTicketsAvertis] = useState(new Set());
   const [relanceEnCours, setRelanceEnCours] = useState(null);
+  const toastTimerRef = useRef(null);
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -79,16 +86,41 @@ export default function UtilisateurDashboard() {
     raw,
   });
 
-  const handleRelancer = async (ticketId) => {
-    setRelanceEnCours(ticketId);
+  const UNE_HEURE_MS = 60 * 60 * 1000;
+
+  const afficherToast = (type, message) => {
+    setToast({ type, message });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 6000);
+  };
+
+  const handleRelancer = async (ticket) => {
+    const dateCreation = new Date(ticket.raw?.dateCreation);
+    const ticketRecent = !Number.isNaN(dateCreation.getTime()) && (Date.now() - dateCreation.getTime()) < UNE_HEURE_MS;
+
+    if (ticketRecent && !ticketsAvertis.has(ticket.id)) {
+      setTicketsAvertis((prev) => new Set(prev).add(ticket.id));
+      afficherToast('info', 'Votre ticket vient d\'être soumis. Merci de patienter, il sera pris en charge dans les plus brefs délais. Vous pouvez tout de même relancer si vous le souhaitez.');
+      return;
+    }
+
+    setRelanceEnCours(ticket.id);
     try {
-      await api.post(`/tickets/${ticketId}/relancer`);
-      setFeedback('Relance envoyée au responsable.');
+      await api.post(`/tickets/${ticket.id}/relancer`);
+      afficherToast('success', 'Votre relance a bien été transmise au responsable. Merci pour votre patience.');
     } catch (err) {
-      setFeedback(err.response?.data?.message || 'Impossible d\'envoyer la relance.');
+      if (err.response?.status === 429) {
+        afficherToast('info', 'Vous avez déjà relancé ce ticket récemment. Une seule relance est possible toutes les 24 heures. Soyez assuré(e) qu\'il sera pris en charge dans les plus brefs délais.');
+      } else {
+        afficherToast('error', err.response?.data?.message || 'Impossible d\'envoyer la relance.');
+      }
     } finally {
       setRelanceEnCours(null);
     }
+  };
+
+  const handleLogout = async () => {
+    await authService.logout();
   };
 
   const countTotal = stats.total ?? tickets.length;
@@ -111,53 +143,48 @@ export default function UtilisateurDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
-      <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
-          <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
+          <div className={`flex items-start gap-3 rounded-2xl border shadow-lg px-4 py-3.5 text-xs font-medium ${
+            toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+            toast.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+            'bg-cyan-50 border-cyan-200 text-cyan-800'
+          }`}>
+            {toast.type === 'success' && <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+            {toast.type === 'error' && <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+            {toast.type === 'info' && <Clock className="w-4 h-4 mt-0.5 shrink-0" />}
+            <p className="flex-1 leading-relaxed">{toast.message}</p>
+            <button onClick={() => setToast(null)} className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <DashboardHeader title="Bienvenue sur votre Espace Utilisateur" onLogout={handleLogout} />
+
+      <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm gap-3 flex-wrap">
+        <div className="flex items-center gap-2 px-2">
+          <h2 className="text-sm font-bold text-slate-800">Mes Tickets</h2>
         </div>
 
-        <div className="text-center px-2 flex-1 min-w-0">
-          <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
-            Bienvenue sur votre Espace Utilisateur
-          </h1>
-          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
-        </div>
-
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-          <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
-        </div>
-      </header>
-
-      <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2">
+       <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveTab('suivi')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'suivi' ? 'bg-[#15aabf] text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            onClick={() => navigate('/creer-ticket')}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:px-4 sm:py-2.5 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md hover:opacity-90 shrink-0 cursor-pointer"
+            style={{ backgroundColor: '#15aabf' }}
           >
-            Mes Tickets
+            <FilePlus2 className="w-4 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden xs:inline">Nouveau ticket</span>
+            <span className="xs:hidden">Créer ticket</span>
           </button>
         </div>
-
-        <button
-          onClick={() => navigate('/creer-ticket')}
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:px-4 sm:py-2.5 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md hover:opacity-90 shrink-0 cursor-pointer"
-          style={{ backgroundColor: '#15aabf' }}
-        >
-          <FilePlus2 className="w-4 h-3.5 sm:w-4 sm:h-4" />
-          <span className="hidden xs:inline">Nouveau ticket</span>
-          <span className="xs:hidden">Créer ticket</span>
-        </button>
       </div>
 
       {activeTab === 'suivi' && (
         <div className="space-y-6">
-          {error && (
+         {error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>
-          )}
-          {feedback && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{feedback}</div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -245,9 +272,9 @@ export default function UtilisateurDashboard() {
                             }`}>
                               {ticket.statut === 'RESOLU' ? 'Résolu' : ticket.statut === 'EN_COURS' ? 'En cours' : 'Soumis'}
                             </span>
-                            {ticket.statut === 'SOUMIS' && (
+                            {ticket.statut !== 'RESOLU' && (
                               <button
-                                onClick={() => handleRelancer(ticket.id)}
+                                onClick={() => handleRelancer(ticket)}
                                 disabled={relanceEnCours === ticket.id}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               >

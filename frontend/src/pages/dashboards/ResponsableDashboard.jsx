@@ -15,9 +15,11 @@ import {
   Eye,
   Paperclip,
   FileText,
+  LogOut,
 } from 'lucide-react';
 import api from '../../services/api';
-
+import { authService } from '../../services/workflowService';
+import DashboardHeader from '../../components/layout/DashboardHeader';
 export default function ResponsableDashboard() {
   const [filter, setFilter] = useState('TOUS');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,7 +40,7 @@ export default function ResponsableDashboard() {
   const [raison, setRaison] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
-
+  const [structureCibleQuery, setStructureCibleQuery] = useState('');
   const structureResponsable = JSON.parse(sessionStorage.getItem('user') || '{}')?.structureId;
 
   const fetchTickets = async () => {
@@ -87,7 +89,7 @@ export default function ResponsableDashboard() {
       (filter === 'ESCALADE' && ticket.affectation?.recuParEscalade) ||
       (filter === 'CLOTUREE' && ticket.affectation?.statut === 'CLOTUREE');
 
-    const matchSearch = `${ticket.titre} ${ticket.reference} ${ticket.agent?.nom || ''} ${ticket.agent?.prenom || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchSearch = `${ticket.titre} ${ticket.reference} ${ticket.agent?.nom || ''} ${ticket.agent?.prenom || ''} ${ticket.affectation?.technicien?.username || ''}`.toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchFilter && matchSearch;
   });
@@ -98,6 +100,7 @@ export default function ResponsableDashboard() {
     setNouveauTechnicienId('');
     setPriorite('');
     setCodeStructureCible('');
+    setStructureCibleQuery('');
     setRaison('');
     setCommentaire('');
   };
@@ -116,9 +119,23 @@ export default function ResponsableDashboard() {
     setTicketDetail(ticket);
   };
 
-  const getFileUrl = (chemin) => `/${chemin}`;
+const getFileUrl = (chemin) => `${import.meta.env.VITE_UPLOADS_URL || ''}/${chemin}`;
 
   const estImage = (chemin) => /\.(png|jpe?g)$/i.test(chemin || '');
+
+  const formaterDate = (dateValue) => {
+    if (!dateValue) return '—';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date);
+  };
 
   const ouvrirEscalade = async (ticket) => {
     setTicketActif(ticket);
@@ -225,130 +242,123 @@ export default function ResponsableDashboard() {
     (t) => t.id !== ticketActif?.affectation?.technicienId
   );
 
+  const handleLogout = async () => {
+    await authService.logout();
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
-      <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
-          <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
-        </div>
-
-        <div className="text-center px-2 flex-1 min-w-0">
-          <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
-            Bienvenue sur votre Espace Responsable équipe technique
-          </h1>
-          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
-        </div>
-
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-          <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
-        </div>
-      </header>
+      <DashboardHeader title="Bienvenue sur votre Espace Responsable équipe technique" onLogout={handleLogout} />
 
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>}
       {feedback && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{feedback}</div>}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <button
-          onClick={() => setFilter('TOUS')}
-          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
-            filter === 'TOUS' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center shrink-0">
-            <Folder className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-            <p className="text-xs text-slate-500 font-medium">Total Tickets</p>
-          </div>
-        </button>
+      <div className="sticky top-[104px] z-20 bg-slate-50 space-y-4 pb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <button
+            onClick={() => setFilter('TOUS')}
+            className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+              filter === 'TOUS' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center shrink-0">
+              <Folder className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
+              <p className="text-xs text-slate-500 font-medium">Total Tickets</p>
+            </div>
+          </button>
 
-        <button
-          onClick={() => setFilter('EN_ATTENTE')}
-          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
-            filter === 'EN_ATTENTE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{stats.enAttente}</p>
-            <p className="text-xs text-slate-500 font-medium">En attente</p>
-          </div>
-        </button>
+          <button
+            onClick={() => setFilter('EN_ATTENTE')}
+            className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+              filter === 'EN_ATTENTE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-800">{stats.enAttente}</p>
+              <p className="text-xs text-slate-500 font-medium">En attente</p>
+            </div>
+          </button>
 
-        <button
-          onClick={() => setFilter('EN_TRAITEMENT')}
-          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
-            filter === 'EN_TRAITEMENT' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-            <Wrench className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{stats.enTraitement}</p>
-            <p className="text-xs text-slate-500 font-medium">En cours</p>
-          </div>
-        </button>
+          <button
+            onClick={() => setFilter('EN_TRAITEMENT')}
+            className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+              filter === 'EN_TRAITEMENT' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
+              <Wrench className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-800">{stats.enTraitement}</p>
+              <p className="text-xs text-slate-500 font-medium">En cours</p>
+            </div>
+          </button>
 
-        <button
-          onClick={() => setFilter('ESCALADE')}
-          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
-            filter === 'ESCALADE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{stats.escalades}</p>
-            <p className="text-xs text-slate-500 font-medium">Reçus par escalade</p>
-          </div>
-        </button>
+          <button
+            onClick={() => setFilter('ESCALADE')}
+            className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+              filter === 'ESCALADE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-800">{stats.escalades}</p>
+              <p className="text-xs text-slate-500 font-medium">Reçus par escalade</p>
+            </div>
+          </button>
 
-        <button
-          onClick={() => setFilter('CLOTUREE')}
-          className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
-            filter === 'CLOTUREE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
+          <button
+            onClick={() => setFilter('CLOTUREE')}
+            className={`bg-white p-5 rounded-2xl border text-left transition-all flex items-center gap-4 cursor-pointer shadow-sm hover:shadow-md ${
+              filter === 'CLOTUREE' ? 'ring-2 ring-[#15aabf] border-slate-300' : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-800">{stats.clotures}</p>
+              <p className="text-xs text-slate-500 font-medium">Résolus</p>
+            </div>
+          </button>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-800">
+                {filter === 'TOUS' && 'Gestion de l’ensemble des tickets'}
+                {filter === 'EN_ATTENTE' && 'Tickets en attente d’affectation'}
+                {filter === 'EN_TRAITEMENT' && 'Tickets en cours de traitement'}
+                {filter === 'ESCALADE' && 'Tickets reçus par escalade'}
+                {filter === 'CLOTUREE' && 'Tickets clôturés'}
+              </h2>
+              <p className="text-xs text-slate-400 font-medium">Affichage de {filteredTickets.length} demande(s)</p>
+            </div>
+
+            <div className="relative max-w-xs w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Rechercher un ticket..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
+              />
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800">{stats.clotures}</p>
-            <p className="text-xs text-slate-500 font-medium">Résolus</p>
-          </div>
-        </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              {filter === 'TOUS' && 'Gestion de l’ensemble des tickets'}
-              {filter === 'EN_ATTENTE' && 'Tickets en attente d’affectation'}
-              {filter === 'EN_TRAITEMENT' && 'Tickets en cours de traitement'}
-              {filter === 'ESCALADE' && 'Tickets reçus par escalade'}
-              {filter === 'CLOTUREE' && 'Tickets clôturés'}
-            </h2>
-            <p className="text-xs text-slate-400 font-medium">Affichage de {filteredTickets.length} demande(s)</p>
-          </div>
-
-          <div className="relative max-w-xs w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Rechercher un ticket..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
-            />
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-12 text-center text-slate-400">Chargement...</div>
@@ -365,6 +375,8 @@ export default function ResponsableDashboard() {
                   <th className="py-3.5 px-6">Sujet</th>
                   <th className="py-3.5 px-6">Demandeur</th>
                   <th className="py-3.5 px-6">Catégorie</th>
+                  <th className="py-3.5 px-6">Soumis le</th>
+                  <th className="py-3.5 px-6">Clôturé le</th>
                   <th className="py-3.5 px-6">Technicien</th>
                   <th className="py-3.5 px-6">Statut</th>
                   <th className="py-3.5 px-6 text-right">Action</th>
@@ -393,6 +405,10 @@ export default function ResponsableDashboard() {
                       <td className="py-4 px-6 whitespace-nowrap">
                         <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">{ticket.categorie?.nom}</span>
                       </td>
+                      <td className="py-4 px-6 whitespace-nowrap text-slate-600">{formaterDate(ticket.dateCreation)}</td>
+                      <td className="py-4 px-6 whitespace-nowrap text-slate-600">
+                        {estCloture ? formaterDate(affectation.dateFinTrait) : <span className="text-slate-300">—</span>}
+                      </td>
                       <td className="py-4 px-6 whitespace-nowrap">
                         <span className="text-xs font-medium text-slate-600">
                           {affectation?.technicien ? `${affectation.technicien.nom || ''} ${affectation.technicien.prenom || ''}`.trim() || affectation.technicien.username : <span className="text-slate-400 italic">Non assigné</span>}
@@ -419,16 +435,6 @@ export default function ResponsableDashboard() {
                             <Eye className="w-3 h-3" />
                             <span>Détail</span>
                           </button>
-
-                          {estCloture && affectation?.commentaire && (
-                            <button
-                              onClick={() => ouvrirDetail(ticket)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                            >
-                              <FileText className="w-3 h-3" />
-                              <span>Voir compte rendu</span>
-                            </button>
-                          )}
 
                           {!estCloture && (
                             <>
@@ -569,6 +575,11 @@ export default function ResponsableDashboard() {
               </div>
 
               <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase">Soumis le</p>
+                <p className="text-slate-700">{formaterDate(ticketDetail.dateCreation)}</p>
+              </div>
+
+              <div>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase">Pièce jointe</p>
                 {ticketDetail.pieceJointe ? (
                   estImage(ticketDetail.pieceJointe) ? (
@@ -685,19 +696,46 @@ export default function ResponsableDashboard() {
             </div>
 
             <form onSubmit={handleEscalader} className="space-y-4">
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Structure cible</label>
-                <select
-                  required
-                  value={codeStructureCible}
-                  onChange={(e) => setCodeStructureCible(e.target.value)}
+                <input
+                  type="text"
+                  value={structureCibleQuery}
+                  onChange={(e) => {
+                    setStructureCibleQuery(e.target.value);
+                    setCodeStructureCible('');
+                  }}
+                  placeholder="Tapez le nom ou le code de la structure..."
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
-                >
-                  <option value="">Sélectionner...</option>
-                  {structuresCibles.map((s) => (
-                    <option key={s.codeStructure} value={s.codeStructure}>{s.designation}</option>
-                  ))}
-                </select>
+                />
+                {structureCibleQuery && !codeStructureCible && (
+                  <div className="mt-2 max-h-48 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-sm">
+                    {structuresCibles.filter((s) => {
+                      const q = structureCibleQuery.trim().toLowerCase();
+                      return s.codeStructure.toLowerCase().includes(q) || s.designation.toLowerCase().includes(q);
+                    }).length > 0 ? (
+                      structuresCibles.filter((s) => {
+                        const q = structureCibleQuery.trim().toLowerCase();
+                        return s.codeStructure.toLowerCase().includes(q) || s.designation.toLowerCase().includes(q);
+                      }).map((s) => (
+                        <button
+                          key={s.codeStructure}
+                          type="button"
+                          onClick={() => {
+                            setCodeStructureCible(s.codeStructure);
+                            setStructureCibleQuery(`${s.codeStructure} - ${s.designation}`);
+                          }}
+                          className="w-full text-left px-3 py-2 border-b border-slate-100 hover:bg-slate-50 text-xs text-slate-700"
+                        >
+                          <div className="font-semibold">{s.codeStructure}</div>
+                          <div className="text-[11px] text-slate-500">{s.designation}</div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-[11px] text-slate-500">Aucune structure trouvée.</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

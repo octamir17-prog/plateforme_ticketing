@@ -46,8 +46,9 @@ api.interceptors.response.use(
             return api(originalRequest);
           }
         } catch (refreshError) {
+          const typeCompteActuel = sessionStorage.getItem('typeCompte');
           sessionStorage.clear();
-          window.location.href = '/connexion-staff';
+          window.location.href = typeCompteActuel === 'UTILISATEUR' ? '/login' : '/connexion-staff';
           return Promise.reject(refreshError);
         }
       }

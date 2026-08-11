@@ -6,6 +6,7 @@ import {
   AlertCircle, 
   Loader2 
 } from 'lucide-react';
+import AuthHeader from '../../components/layout/AuthHeader';
 import { authService } from '../../services/workflowService';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -25,7 +26,7 @@ export default function StaffLogin() {
 
     try {
       setSubmitting(true);
-      const res = await authService.login(username, motdepasse);
+      const res = await authService.login(username, motdepasse, 'STAFF');
 
       if (res && res.accessToken) {
         loginSuccess({ accessToken: res.accessToken, refreshToken: res.refreshToken, typeCompte: res.typeCompte, profil: res.profil });
@@ -55,6 +56,8 @@ export default function StaffLogin() {
         setErrorMsg('Ce compte n\'est pas encore actif, utilisez le lien reçu par email.');
       } else if (status === 409) {
         setErrorMsg('Ce nom d\'utilisateur correspond a plusieurs comptes. Contactez l\'administrateur.');
+      } else if (!err.response) {
+        setErrorMsg('Serveur injoignable. Vérifiez votre connexion et réessayez.');
       } else {
         setErrorMsg('Une erreur s\'est produite lors de la connexion.');
       }
@@ -64,44 +67,18 @@ export default function StaffLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between">
-      <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="h-9 sm:h-10 w-auto shrink-0 flex items-center">
-            <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
-          </div>
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+      <AuthHeader title="Bienvenue sur l'espace de connexion staff du Ministère de la Santé" />
 
-          <div className="text-center px-2 flex-1 min-w-0">
-            <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-wide truncate">
-              Bienvenue sur l'espace de connexion du personnel
-            </h1>
-            <p className="text-[11px] font-semibold truncate" style={{ color: '#15aabf' }}>
-              Ministère de la Santé — République du Bénin
-            </p>
-          </div>
-
-          <div className="h-9 sm:h-10 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-            <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
             <div className="border-b border-slate-100 pb-4 space-y-1">
-              <h2 className="text-base font-bold text-slate-900">Connexion Staff</h2>
+              <h2 className="text-xl font-bold" style={{ color: '#15aabf' }}>Connexion Staff</h2>
               <p className="text-xs text-slate-500">
                 Accédez à votre espace professionnel de gestion.
               </p>
             </div>
-
-            {errorMsg && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -147,12 +124,25 @@ export default function StaffLogin() {
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 <span>Se connecter</span>
               </button>
+
+              {errorMsg && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
             </form>
+
+            <div className="text-center text-[11px] text-slate-500">
+              <a href="/mot-de-passe-oublie?type=STAFF" className="font-semibold text-[#15aabf] hover:underline">
+                Mot de passe oublié ?
+              </a>
+            </div>
           </div>
         </div>
       </main>
 
-      <footer className="py-4 border-t border-slate-200 bg-white text-center text-[11px] text-slate-400">
+      <footer className="text-center text-[11px] text-slate-400">
         © Ministère de la Santé - République du Bénin
       </footer>
     </div>

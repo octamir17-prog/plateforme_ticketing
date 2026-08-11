@@ -11,6 +11,8 @@ import {
   User,
   Briefcase
 } from 'lucide-react';
+import AuthHeader from '../../components/layout/AuthHeader';
+
 import { authService } from '../../services/workflowService';
 
 export default function VerificationMatricule() {
@@ -31,6 +33,11 @@ export default function VerificationMatricule() {
     setLoading(true);
 
     try {
+      if (!matricule || !telephone) {
+        setError('Le matricule et le téléphone sont obligatoires.');
+        return;
+      }
+
       await authService.verifyAgent(matricule, telephone);
       setStep(2);
       setSuccessMessage('Code envoyé. Vérifiez votre adresse email institutionnelle.');
@@ -79,22 +86,7 @@ export default function VerificationMatricule() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
-      <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
-          <img src="/logo_sante.png" alt="Logo Ministère" className="h-full w-auto object-contain" />
-        </div>
-
-        <div className="text-center px-2 flex-1 min-w-0">
-          <h1 className="text-[11px] sm:text-lg lg:text-xl font-bold tracking-tight leading-tight" style={{ color: '#15aabf' }}>
-            Bienvenue sur votre Plateforme de Ticketing
-          </h1>
-          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">Ministère de la Santé — République du Bénin</p>
-        </div>
-
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-          <img src="/logo_sante.png" alt="" className="h-full w-auto object-contain" />
-        </div>
-      </header>
+      <AuthHeader title="Bienvenue sur votre Plateforme de Ticketing" />
 
       <div className="flex items-center justify-center p-4 sm:min-h-[calc(100vh-200px)]">
         <div className="bg-white w-full max-w-md rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
@@ -104,7 +96,7 @@ export default function VerificationMatricule() {
           <div className="w-12 h-12 bg-cyan-50 text-[#15aabf] rounded-2xl flex items-center justify-center mx-auto">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-slate-800">Vérification de l'agent</h1>
+          <h1 className="text-xl font-bold" style={{ color: '#15aabf' }}>Vérification de l'agent</h1>
           <p className="text-xs text-slate-500">
             {step === 1 && 'Saisissez vos identifiants pour recevoir votre code de vérification'}
             {step === 2 && 'Saisissez le code reçu sur votre adresse email institutionnelle'}

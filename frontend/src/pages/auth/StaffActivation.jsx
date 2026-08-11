@@ -21,7 +21,8 @@ export default function StaffActivation() {
   const [tokenInvalid, setTokenInvalid] = useState(false);
   const [dataActivation, setDataActivation] = useState(null);
 
-  const [username, setUsername] = useState('');
+  const [prefixeUsername, setPrefixeUsername] = useState('');
+  const [suffixeUsername, setSuffixeUsername] = useState('');
   const [motdepasse, setMotdepasse] = useState('');
   const [confirmMotdepasse, setConfirmMotdepasse] = useState('');
 
@@ -33,23 +34,22 @@ export default function StaffActivation() {
     const verifierToken = async () => {
       try {
         setLoading(true);
-      const res = await authService.getActivationInfo(token);
-      if (res && res.role) {
-        setDataActivation(res);
-        if (res.agent?.email) {
-          const prefixeEmail = res.agent.email.split('@')[0];
-          const suffixeParRole = { TECHNICIEN: '-tech', POINT_FOCAL: '-pf' };
-          const suffixe = suffixeParRole[res.role] || '';
-          setUsername(`${prefixeEmail}${suffixe}`);
+        const res = await authService.getActivationInfo(token);
+        if (res && res.role) {
+          setDataActivation(res);
+          setPrefixeUsername(res.prefixeUsername || '');
+          if (res.agent?.email) {
+            const prefixeEmail = res.agent.email.split('@')[0];
+            setSuffixeUsername(prefixeEmail);
+          }
+        } else {
+          setTokenInvalid(true);
         }
-      } else {
+      } catch (err) {
         setTokenInvalid(true);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setTokenInvalid(true);
-    } finally {
-      setLoading(false);
-    }
     };
 
     if (token) {
@@ -64,6 +64,11 @@ export default function StaffActivation() {
     e.preventDefault();
     setErrorMsg('');
 
+    if (!suffixeUsername) {
+      setErrorMsg('Veuillez completer votre nom d\'utilisateur.');
+      return;
+    }
+
     if (motdepasse.length < 8) {
       setErrorMsg('Le mot de passe doit contenir au moins 8 caractères.');
       return;
@@ -74,9 +79,11 @@ export default function StaffActivation() {
       return;
     }
 
+    const usernameComplet = `${prefixeUsername}${suffixeUsername}`;
+
     try {
       setSubmitting(true);
-      const res = await authService.activateAccount(token, username, motdepasse);
+      const res = await authService.activateAccount(token, usernameComplet, motdepasse);
 
       if (res && res.success !== false) {
         setIsSuccess(true);
@@ -233,19 +240,21 @@ export default function StaffActivation() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Nom d'utilisateur
                   </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 focus-within:ring-2 focus-within:ring-[#15aabf] focus-within:bg-white transition-all">
+                    <span className="pl-3 pr-2 py-2.5 text-xs font-bold text-slate-500 select-none">
+                      {prefixeUsername}
+                    </span>
                     <input
                       type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Choisissez votre nom d'utilisateur"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#15aabf] focus:bg-white transition-all"
+                      value={suffixeUsername}
+                      onChange={(e) => setSuffixeUsername(e.target.value)}
+                      placeholder="votre_identifiant"
+                      className="flex-1 pr-3 py-2.5 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
                       required
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Suggestion : la partie de votre email avant le @, suivie de "-tech" pour un compte technicien ou "-pf" pour un compte point focal (modifiable si vous préférez autre chose).
+                    Le préfixe {prefixeUsername} est fixe selon votre rôle. Vous pouvez modifier la suite (par défaut, la partie de votre email avant le @).
                   </p>
                 </div>
 

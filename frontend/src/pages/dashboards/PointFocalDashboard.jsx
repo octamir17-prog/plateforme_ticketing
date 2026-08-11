@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Search, CheckCircle, XCircle, Plus, X } from 'lucide-react';
+import { Users, UserPlus, Search, CheckCircle, XCircle, Plus, X, LogOut } from 'lucide-react';
 import api from '../../services/api';
+import { authService } from '../../services/workflowService';
+import DashboardHeader from '../../components/layout/DashboardHeader';
 
 export default function PointFocalDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,49 +63,20 @@ export default function PointFocalDashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await authService.logout();
+  };
+
   const filteredAgents = agents.filter((a) =>
     (a.nom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (a.prenom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     String(a.matricule || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6">
 
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <header className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-row items-center justify-between gap-4 w-full">
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center">
-          <img 
-            src="/logo_sante.png" 
-            alt="Logo Ministère" 
-            className="h-full w-auto object-contain"
-          />
-        </div>
-
-        <div className="text-center px-2 flex-1 min-w-0">
-          <h1 className="text-xs sm:text-lg lg:text-xl font-bold tracking-tight truncate" style={{ color: '#15aabf' }}>
-            Bienvenue sur votre Espace Point Focal 
-          </h1>
-          <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block">
-            Ministère de la Santé — République du Bénin
-          </p>
-        </div>
-
-        <div className="h-9 sm:h-12 w-auto shrink-0 flex items-center opacity-0 pointer-events-none hidden sm:flex">
-          <img 
-            src="/logo_sante.png" 
-            alt="" 
-            className="h-full w-auto object-contain"
-          />
-        </div>
-        
-      </header>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#15aabf] hover:opacity-90 text-white font-semibold text-xs rounded-xl cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Nouvel Agent
-        </button>
-      </div>
+      <DashboardHeader title="Bienvenue sur votre Espace Point Focal" onLogout={handleLogout} />
 
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">{error}</div>
@@ -112,18 +85,26 @@ export default function PointFocalDashboard() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">{feedback}</div>
       )}
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
-        <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Rechercher par nom, matricule..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
-          />
-        </div>
+      <div className="sticky top-[104px] z-20 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <span className="text-xs text-slate-500 font-medium">{filteredAgents.length} Agent(s) enregistré(s)</span>
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-xs w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, matricule..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#15aabf]"
+            />
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#15aabf] hover:opacity-90 text-white font-semibold text-xs rounded-xl cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" /> Nouvel Agent
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">

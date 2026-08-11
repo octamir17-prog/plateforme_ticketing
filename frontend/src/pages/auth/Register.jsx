@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, UserPlus } from 'lucide-react';
+import AuthHeader from '../../components/layout/AuthHeader';
 import { authService } from '../../services/workflowService';
 
 const retirerAccents = (texte) => texte.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -70,12 +71,15 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-xl font-bold text-slate-800">Inscription</h1>
-          <p className="text-xs text-slate-500">Finalisez votre compte utilisateur</p>
-        </div>
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+      <AuthHeader title="Finalisation de votre inscription" />
+
+      <main className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+          <div className="text-center space-y-2">
+            <h1 className="text-xl font-bold" style={{ color: '#15aabf' }}>Inscription</h1>
+            <p className="text-xs text-slate-500">Finalisez votre compte utilisateur</p>
+          </div>
 
         {error && (
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
@@ -150,11 +154,16 @@ export default function Register() {
         </form>
 
         <div className="text-center text-xs text-slate-500">
-          <Link to="/" className="text-[#15aabf] hover:underline">
-            Retour à la vérification
-          </Link>
+            <Link to="/" className="text-[#15aabf] hover:underline">
+              Retour à la vérification
+            </Link>
+          </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="text-center text-[11px] text-slate-400">
+        © Ministère de la Santé - République du Bénin
+      </footer>
     </div>
   );
 }
