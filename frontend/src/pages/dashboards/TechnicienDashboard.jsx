@@ -36,23 +36,31 @@ export default function TechnicienDashboard() {
   const [structureCibleQuery, setStructureCibleQuery] = useState('');
   const [tickets, setTickets] = useState([]);
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (silencieux = false) => {
     try {
-      setLoading(true);
+      if (!silencieux) setLoading(true);
       const res = await api.get('/tickets');
       const payload = res.data?.data || res.data || [];
       setTickets(Array.isArray(payload) ? payload : []);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
-      setTickets([]);
+      if (!silencieux) {
+        setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
+        setTickets([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silencieux) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchTickets();
+
+    const intervalle = setInterval(() => {
+      fetchTickets(true);
+    }, 20000);
+
+    return () => clearInterval(intervalle);
   }, []);
 
   const stats = {
