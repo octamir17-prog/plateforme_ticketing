@@ -43,18 +43,20 @@ export default function ResponsableDashboard() {
   const [structureCibleQuery, setStructureCibleQuery] = useState('');
   const structureResponsable = JSON.parse(sessionStorage.getItem('user') || '{}')?.structureId;
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (silencieux = false) => {
     try {
-      setLoading(true);
+      if (!silencieux) setLoading(true);
       const res = await api.get('/tickets');
       const payload = res.data?.data || res.data || [];
       setTickets(Array.isArray(payload) ? payload : []);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Impossible de charger les tickets.');
-      setTickets([]);
+      if (!silencieux) {
+        setError(err.response?.data?.message || 'Impossible de charger les tickets.');
+        setTickets([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silencieux) setLoading(false);
     }
   };
 
@@ -71,6 +73,13 @@ export default function ResponsableDashboard() {
   useEffect(() => {
     fetchTickets();
     fetchTechniciens();
+
+    const intervalle = setInterval(() => {
+      fetchTickets(true);
+      fetchTechniciens();
+    }, 20000);
+
+    return () => clearInterval(intervalle);
   }, []);
 
   const stats = {
@@ -590,12 +599,7 @@ const getFileUrl = (chemin) => `${import.meta.env.VITE_UPLOADS_URL || ''}/${chem
                       className="mt-2 max-h-48 rounded-xl border border-slate-200 cursor-zoom-in hover:opacity-90 transition-opacity"
                     />
                   ) : (
-                    <a
-                      href={getFileUrl(ticketDetail.pieceJointe)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-1 text-[#15aabf] hover:underline font-semibold"
-                    >
+                    <a href={getFileUrl(ticketDetail.pieceJointe)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-1 text-[#15aabf] hover:underline font-semibold">
                       <Paperclip className="w-3.5 h-3.5" />
                       <span>Voir la pièce jointe</span>
                     </a>
