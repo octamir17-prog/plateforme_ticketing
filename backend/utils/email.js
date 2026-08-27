@@ -1,7 +1,3 @@
-// ===== IMPORTS =====
-// (aucun import externe, fetch est natif)
-
-// ===== CONSTANTES GLOBALES =====
 const EMAIL_CONFIG = {
   senderEmail: process.env.EMAIL_FROM || 'noreply@sante-benin.bj',
   senderName: 'Ministère de la Santé - Plateforme de Tickets',
@@ -152,6 +148,35 @@ async function envoyerLienActivation(destinataire, nomComplet, libelleRole, stru
   return envoyer(destinataire, sujet, contenuHtml, contenuTexte);
 }
 
+async function envoyerLienActivationDouble(destinataire, nomComplet, structureDesignation, compteA, compteB) {
+  const urlA = `${origineFrontendPourLiens()}/activation/${compteA.token}`;
+  const urlB = `${origineFrontendPourLiens()}/activation/${compteB.token}`;
+  const sujet = `Activation de vos comptes ${compteA.libelleRole} et ${compteB.libelleRole}`;
+  const contenuTexte = `Bonjour ${nomComplet},\n\nVous avez été désigné ${compteA.libelleRole} ET ${compteB.libelleRole} pour la structure : ${structureDesignation}.\n\nVous devez activer VOS DEUX comptes, séparément :\n\n1) Compte ${compteA.libelleRole} :\n${urlA}\n\n2) Compte ${compteB.libelleRole} :\n${urlB}\n\nChaque lien est valable 24 heures et ne peut être utilisé qu'une seule fois.`;
+  const contenuHtml = genererHtmlGeneral(
+    nomComplet,
+    `Activation de vos comptes ${compteA.libelleRole} et ${compteB.libelleRole}`,
+    [
+      `Vous avez été désigné <strong>${compteA.libelleRole}</strong> et <strong>${compteB.libelleRole}</strong> pour la structure :`,
+      `<strong style="color: #15aabf;">${structureDesignation}</strong>`,
+      '',
+      '<strong>Vous devez activer vos deux comptes, séparément, en suivant les deux liens ci-dessous :</strong>',
+      '',
+      `<strong>1) Compte ${compteA.libelleRole}</strong>`,
+      `<a href="${urlA}" style="display: inline-block; background-color: #15aabf; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Activer mon compte ${compteA.libelleRole}</a>`,
+      `<code style="background-color: #f0f0f0; padding: 8px; border-radius: 4px; display: block; word-break: break-all;">${urlA}</code>`,
+      '',
+      `<strong>2) Compte ${compteB.libelleRole}</strong>`,
+      `<a href="${urlB}" style="display: inline-block; background-color: #15aabf; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Activer mon compte ${compteB.libelleRole}</a>`,
+      `<code style="background-color: #f0f0f0; padding: 8px; border-radius: 4px; display: block; word-break: break-all;">${urlB}</code>`,
+      '',
+      '<em>Chaque lien est valable <strong>24 heures</strong> et ne peut être utilisé qu\'une seule fois.</em>',
+    ]
+  );
+
+  return envoyer(destinataire, sujet, contenuHtml, contenuTexte);
+}
+
 async function envoyerConfirmationActivation(destinataire, nomComplet, libelleRole) {
   const urlConnexionStaff = `${origineFrontendPourLiens()}/connexion-staff`;
   const sujet = 'Votre compte est actif';
@@ -214,6 +239,7 @@ module.exports = {
   envoyerCodeInscription,
   envoyerCodeReinitialisation,
   envoyerLienActivation,
+  envoyerLienActivationDouble,
   envoyerConfirmationActivation,
   envoyerRelanceManuelle,
   envoyerRelanceAutomatique,
