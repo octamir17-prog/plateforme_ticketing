@@ -1,10 +1,10 @@
 // ===== IMPORTS =====
 const prisma = require('../prisma/client');
 const { TABLE_PAR_ROLE, LIBELLE_ROLE } = require('../utils/roles');
-const { envoyerLienPourEmplacement } = require('../utils/activation');
+const { envoyerLienPourEmplacement, envoyerLiensActivationJumeaux } = require('../utils/activation');
 
 // ===== CONSTANTES GLOBALES =====
-// (aucune constante globale supplémentaire, utils et prisma suffisent)
+// (aucune constante globale supplementaire, utils et prisma suffisent)
 
 // ===== FONCTIONS UTILITAIRES =====
 
@@ -28,6 +28,25 @@ function retirerChampsSensibles(compte) {
   const { motdepasse, tokenActivation, tokenActivationExpiration, ...reste } = compte;
   return reste;
 }
+
+async function trouverComptesExistantsAgent(agentMatricule) {
+  const [responsable, technicien, pointFocal] = await Promise.all([
+    prisma.responsableEquipeTechnique.findUnique({ where: { agentMatricule } }),
+    prisma.technicien.findUnique({ where: { agentMatricule } }),
+    prisma.pointFocal.findUnique({ where: { agentMatricule } }),
+  ]);
+
+  const comptes = [];
+  if (responsable) comptes.push({ role: 'RESPONSABLE', compte: responsable });
+  if (technicien) comptes.push({ role: 'TECHNICIEN', compte: technicien });
+  if (pointFocal) comptes.push({ role: 'POINT_FOCAL', compte: pointFocal });
+
+  return comptes;
+}
+
+// Seul cumul autorise : un Responsable peut detenir en parallele son compte
+// Technicien "jumeau". Toute autre combinaison (ou un 3e compte) est refusee.
+const CUMUL_AUTORISE = ['RESPONSABLE', 'TECHNICIEN'];
 
 // ===== CONTRÔLEURS =====
 
@@ -118,20 +137,30 @@ async function designer(req, res) {
     });
   }
 
+  const comptesExistants = await trouverComptesExistantsAgent(agent.matricule);
+  const rolesExistants = comptesExistants.map((c) => c.role);
+
+  const estCumulResponsableTechnicien =
+    rolesExistants.length === 1 &&
+    CUMUL_AUTORISE.includes(rolesExistants[0]) &&
+    CUMUL_AUTORISE.includes(role) &&
+    rolesExistants[0] !== role;
+
+  if (rolesExistants.length > 0 && !estCumulResponsableTechnicien) {
+    const rolesLabel = rolesExistants.map((r) => LIBELLE_ROLE[r]).join(', ');
+    return res.status(409).json({
+      success: false,
+      message: `Cet agent possede deja un compte ${rolesLabel}. Seul le cumul Responsable + Technicien (compte jumeau) est autorise.`,
+      errors: [],
+    });
+  }
+
+  const compteJumeauExistant = estCumulResponsableTechnicien ? comptesExistants[0] : null;
+
   const table = TABLE_PAR_ROLE[role]();
 
   // Cas RESPONSABLE / POINT_FOCAL : 1 emplacement par structure (contrainte unique)
   if (role === 'RESPONSABLE' || role === 'POINT_FOCAL') {
-    const dejaTitulaire = await table.findUnique({ where: { agentMatricule: agent.matricule } });
-
-    if (dejaTitulaire) {
-      return res.status(409).json({
-        success: false,
-        message: `Cet agent detient deja un compte ${LIBELLE_ROLE[role]}.`,
-        errors: [],
-      });
-    }
-
     let emplacement = await table.findUnique({ where: { structureId: structure.id } });
 
     if (emplacement && emplacement.agentMatricule) {
@@ -153,7 +182,9 @@ async function designer(req, res) {
       });
     }
 
-    const emailEnvoye = await envoyerLienPourEmplacement(role, emplacement.id);
+    const emailEnvoye = role === 'RESPONSABLE' && compteJumeauExistant
+      ? await envoyerLiensActivationJumeaux('RESPONSABLE', emplacement.id, 'TECHNICIEN', compteJumeauExistant.compte.id)
+      : await envoyerLienPourEmplacement(role, emplacement.id);
 
     return res.status(201).json({
       success: true,
@@ -175,17 +206,13 @@ async function designer(req, res) {
     });
   }
 
-  const dejaTitulaire = await prisma.technicien.findUnique({ where: { agentMatricule: agent.matricule } });
-
-  if (dejaTitulaire) {
-    return res.status(409).json({ success: false, message: 'Cet agent detient deja un compte Technicien.', errors: [] });
-  }
-
   const emplacement = await prisma.technicien.create({
     data: { responsableId: responsable.id, agentMatricule: agent.matricule, telephone: agent.numero, username: `PENDING-${structure.id}-TEC-${Date.now()}` },
   });
 
-  const emailEnvoye = await envoyerLienPourEmplacement('TECHNICIEN', emplacement.id);
+  const emailEnvoye = compteJumeauExistant
+    ? await envoyerLiensActivationJumeaux('TECHNICIEN', emplacement.id, 'RESPONSABLE', compteJumeauExistant.compte.id)
+    : await envoyerLienPourEmplacement('TECHNICIEN', emplacement.id);
 
   return res.status(201).json({
     success: true,
@@ -212,6 +239,14 @@ async function renvoyerLien(req, res) {
 
   if (!emplacement.agentMatricule) {
     return res.status(409).json({ success: false, message: "Cet emplacement n'est rattache a aucun agent.", errors: [] });
+  }
+
+  if (emplacement.motdepasse) {
+    return res.status(409).json({
+      success: false,
+      message: 'Ce compte est deja actif, impossible de renvoyer un lien d\'activation.',
+      errors: [],
+    });
   }
 
   await table.update({ where: { id: emplacement.id }, data: { motdepasse: null } });
@@ -253,36 +288,6 @@ async function liberer(req, res) {
   });
 
   return res.status(200).json({ success: true, message: 'Emplacement libere.' });
-}
-
-async function supprimerEmplacement(req, res) {
-  const { role, username } = req.body;
-
-  if (!role || !TABLE_PAR_ROLE[role] || !username) {
-    return res.status(400).json({ success: false, message: 'Role et username sont obligatoires.', errors: [] });
-  }
-
-  const table = TABLE_PAR_ROLE[role]();
-  const emplacement = await table.findUnique({ where: { username } });
-
-  if (!emplacement) {
-    return res.status(404).json({ success: false, message: 'Emplacement introuvable.', errors: [] });
-  }
-
-  if (role === 'RESPONSABLE') {
-    const techniciensRattaches = await prisma.technicien.count({ where: { responsableId: emplacement.id } });
-    if (techniciensRattaches > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'Impossible de supprimer : des techniciens sont encore rattaches a ce responsable.',
-        errors: [],
-      });
-    }
-  }
-
-  await table.delete({ where: { id: emplacement.id } });
-
-  return res.status(200).json({ success: true, message: 'Emplacement supprime.' });
 }
 
 async function listerResponsables(req, res) {
@@ -413,7 +418,6 @@ module.exports = {
   designer,
   renvoyerLien,
   liberer,
-  supprimerEmplacement,
   listerResponsables,
   listerTechniciens,
   listerPointsFocaux,
