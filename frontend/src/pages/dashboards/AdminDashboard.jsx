@@ -289,7 +289,36 @@ if (echecs.length > 0) {
 
     setLoading(false);
   };
+  const fetchStats = async () => {
+  try {
+    const response = await api.get('/dashboard/admin');
 
+    setStats(
+      response.data?.data ||
+      response.data ||
+      {
+        agents: 0,
+        structures: 0,
+        ticketsTotal: 0,
+        ticketsClotures: 0
+      }
+    );
+  } catch (error) {
+    console.error('Erreur lors de l\'actualisation des statistiques :', error);
+  }
+};
+useEffect(() => {
+  fetchInitialData();
+}, []);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    fetchStats();
+  }, 20000);
+
+  return () => clearInterval(interval);
+}, []);
+  
  const fetchAdminTickets = async () => {
     try {
       setTicketsLoading(true);
