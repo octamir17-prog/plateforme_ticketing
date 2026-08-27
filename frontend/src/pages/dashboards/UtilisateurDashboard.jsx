@@ -30,39 +30,7 @@ export default function UtilisateurDashboard() {
   const [ticketsAvertis, setTicketsAvertis] = useState(new Set());
   const [relanceEnCours, setRelanceEnCours] = useState(null);
   const toastTimerRef = useRef(null);
-
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
-        const [ticketsRes, statsRes] = await Promise.all([
-          api.get('/tickets'),
-          api.get('/dashboard/utilisateur'),
-        ]);
-
-        const payload = ticketsRes.data?.data || ticketsRes.data || [];
-        const mappedTickets = Array.isArray(payload) ? payload.map(mapTicket) : [];
-        setTickets(mappedTickets);
-        const dashboardStats = statsRes.data?.data || statsRes.data || {};
-        setStats({
-          total: dashboardStats.total ?? mappedTickets.length,
-          soumis: dashboardStats.soumis ?? mappedTickets.filter((t) => t.statut === 'SOUMIS').length,
-          enCours: dashboardStats.enCours ?? mappedTickets.filter((t) => t.statut === 'EN_COURS').length,
-          clotures: dashboardStats.clotures ?? mappedTickets.filter((t) => t.statut === 'RESOLU').length,
-        });
-        setError('');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
-        setTickets([]);
-        setStats({ total: 0, soumis: 0, enCours: 0, clotures: 0 });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
-  }, []);
-
+  
   const formatDate = (value) => {
     if (!value) return '—';
     const date = new Date(value);
@@ -85,6 +53,58 @@ export default function UtilisateurDashboard() {
     statut: normalizeStatus(raw.statut),
     raw,
   });
+
+  const loadDashboard = async (showLoading = false) => {
+  try {
+    if (showLoading) {
+      setLoading(true);
+    }
+
+    const [ticketsRes, statsRes] = await Promise.all([
+      api.get('/tickets'),
+      api.get('/dashboard/utilisateur'),
+    ]);
+
+    const payload = ticketsRes.data?.data || ticketsRes.data || [];
+    const mappedTickets = Array.isArray(payload) ? payload.map(mapTicket) : [];
+
+    setTickets(mappedTickets);
+
+    const dashboardStats = statsRes.data?.data || statsRes.data || {};
+
+    setStats({
+      total: dashboardStats.total ?? mappedTickets.length,
+      soumis: dashboardStats.soumis ?? mappedTickets.filter((t) => t.statut === 'SOUMIS').length,
+      enCours: dashboardStats.enCours ?? mappedTickets.filter((t) => t.statut === 'EN_COURS').length,
+      clotures: dashboardStats.clotures ?? mappedTickets.filter((t) => t.statut === 'RESOLU').length,
+    });
+
+    setError('');
+  } catch (err) {
+    setError(err.response?.data?.message || 'Impossible de charger vos tickets.');
+
+    if (showLoading) {
+      setTickets([]);
+      setStats({ total: 0, soumis: 0, enCours: 0, clotures: 0 });
+    }
+  } finally {
+    if (showLoading) {
+      setLoading(false);
+    }
+  }
+};
+
+useEffect(() => {
+  // Chargement initial
+  loadDashboard(true);
+
+  // Actualisation automatique toutes les 20 secondes
+  const interval = setInterval(() => {
+    loadDashboard(false);
+  }, 20000);
+
+  return () => clearInterval(interval);
+}, []);
 
   const UNE_HEURE_MS = 60 * 60 * 1000;
 
