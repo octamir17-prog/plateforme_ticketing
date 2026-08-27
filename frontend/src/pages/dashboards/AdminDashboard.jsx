@@ -31,6 +31,12 @@ const ROLE_LABELS = {
   POINT_FOCAL: 'Point focal',
 };
 
+const ROLE_ENDPOINT_SEGMENT = {
+  RESPONSABLE: 'responsables',
+  TECHNICIEN: 'techniciens',
+  POINT_FOCAL: 'points-focaux',
+};
+
 const STATS_CONFIG = [
   { key: 'agents', label: 'Agents enregistrés', icon: Users, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600' },
   { key: 'structures', label: 'Structures actives', icon: Building2, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
@@ -506,6 +512,29 @@ if (echecs.length > 0) {
     }
   };
 
+  const handleDesactiverEmplacement = async () => {
+    if (!window.confirm('Voulez-vous vraiment desactiver ce compte ? Il ne pourra plus se connecter tant qu\'il ne sera pas reactive.')) return;
+    try {
+      const segment = ROLE_ENDPOINT_SEGMENT[selectedEmplacement.role];
+      await api.patch(`/${segment}/${selectedEmplacement.id}/desactiver`);
+      setShowGererModal(false);
+      fetchEmplacements();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la desactivation');
+    }
+  };
+
+  const handleReactiverEmplacement = async () => {
+    try {
+      const segment = ROLE_ENDPOINT_SEGMENT[selectedEmplacement.role];
+      await api.patch(`/${segment}/${selectedEmplacement.id}/reactiver`);
+      setShowGererModal(false);
+      fetchEmplacements();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Erreur lors de la reactivation');
+    }
+  };
+
   const handleImportExcel = async (e) => {
     e.preventDefault();
     if (!importFile) return;
@@ -944,6 +973,8 @@ if (echecs.length > 0) {
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                   : emp.statut === 'ATTRIBUE'
                                   ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                  : emp.statut === 'INACTIF'
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
                                   : emp.statut === 'LIBRE_DEFINITIF'
                                   ? 'bg-slate-50 text-slate-400 border border-slate-200'
                                   : 'bg-slate-100 text-slate-600 border border-slate-200'
@@ -951,6 +982,7 @@ if (echecs.length > 0) {
                             >
                               {emp.statut === 'ACTIVE' && 'Actif'}
                               {emp.statut === 'ATTRIBUE' && 'Attribué'}
+                              {emp.statut === 'INACTIF' && 'Désactivé'}
                               {emp.statut === 'LIBRE_DEFINITIF' && 'Libéré (historique)'}
                             </span>
                           </td>
@@ -1809,6 +1841,8 @@ if (echecs.length > 0) {
                   className={
                     selectedEmplacement.statut === 'ACTIVE'
                       ? 'text-emerald-600 font-semibold'
+                      : selectedEmplacement.statut === 'INACTIF'
+                      ? 'text-rose-600 font-semibold'
                       : selectedEmplacement.statut === 'LIBRE_DEFINITIF'
                       ? 'text-slate-400 font-semibold'
                       : 'text-amber-600 font-semibold'
@@ -1816,6 +1850,7 @@ if (echecs.length > 0) {
                 >
                   {selectedEmplacement.statut === 'ACTIVE' && 'Actif'}
                   {selectedEmplacement.statut === 'ATTRIBUE' && 'Attribué'}
+                  {selectedEmplacement.statut === 'INACTIF' && 'Désactivé'}
                   {selectedEmplacement.statut === 'LIBRE_DEFINITIF' && 'Libéré (historique)'}
                 </span>
               </p>
@@ -1835,14 +1870,25 @@ if (echecs.length > 0) {
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => alert('Fonctionnalité de désactivation')}
-                    className="w-full p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center gap-3 transition-colors cursor-pointer"
-                  >
-                    <Lock className="w-4 h-4 text-slate-500" />
-                    <span>Désactiver le compte</span>
-                  </button>
+                  {selectedEmplacement.statut === 'INACTIF' ? (
+                    <button
+                      type="button"
+                      onClick={handleReactiverEmplacement}
+                      className="w-full p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-semibold flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Lock className="w-4 h-4 text-emerald-600" />
+                      <span>Réactiver le compte</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleDesactiverEmplacement}
+                      className="w-full p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Lock className="w-4 h-4 text-slate-500" />
+                      <span>Désactiver le compte</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
