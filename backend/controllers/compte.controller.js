@@ -9,6 +9,10 @@ const { envoyerLienPourEmplacement, envoyerLiensActivationJumeaux } = require('.
 // ===== FONCTIONS UTILITAIRES =====
 
 function statutEmplacement(compte, role) {
+  if (compte.actif === false) {
+    return 'INACTIF';
+  }
+
   if (compte.motdepasse) {
     return 'ACTIVE';
   }
@@ -100,7 +104,7 @@ async function listerEmplacements(req, res) {
   donnees = donnees.filter((emplacement) => emplacement.statut !== 'LIBRE');
   donnees = donnees.filter((emplacement) => !statut || emplacement.statut === statut);
 
-  const ordreStatut = { ACTIVE: 0, ATTRIBUE: 1, LIBRE: 2, LIBRE_DEFINITIF: 3 };
+  const ordreStatut = { ACTIVE: 0, ATTRIBUE: 1, INACTIF: 2, LIBRE: 3, LIBRE_DEFINITIF: 4 };
   donnees.sort((a, b) => (ordreStatut[a.statut] ?? 99) - (ordreStatut[b.statut] ?? 99));
 
   return res.status(200).json({ success: true, data: donnees });
