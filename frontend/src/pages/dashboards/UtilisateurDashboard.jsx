@@ -292,16 +292,16 @@ useEffect(() => {
                             }`}>
                               {ticket.statut === 'RESOLU' ? 'Résolu' : ticket.statut === 'EN_COURS' ? 'En cours' : 'Soumis'}
                             </span>
-                            {ticket.statut !== 'RESOLU' && (
-                              <button
-                                onClick={() => handleRelancer(ticket)}
-                                disabled={relanceEnCours === ticket.id}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <Send className="w-3 h-3" />
-                                {relanceEnCours === ticket.id ? 'Envoi...' : 'Relancer'}
-                              </button>
-                            )}
+                                {ticket.statut === 'SOUMIS' && (
+                                  <button
+                                    onClick={() => handleRelancer(ticket)}
+                                    disabled={relanceEnCours === ticket.id}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    {relanceEnCours === ticket.id ? 'Envoi...' : 'Relancer'}
+                                  </button>
+                                )}
                           </div>
                         </td>
                       </tr>
