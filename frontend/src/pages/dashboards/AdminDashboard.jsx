@@ -126,6 +126,18 @@ const emplacementStructureRef = useRef(null);
     }
   }, [activeTab, roleFilter, structureFilterCode]);
 
+  // Actualisation silencieuse toutes les 30s tant que l'onglet Comptes est actif,
+  // pour refléter les activations/attributions sans recharger la page.
+  useEffect(() => {
+    if (activeTab !== 'comptes') return;
+
+    const interval = setInterval(() => {
+      fetchEmplacements();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, roleFilter, structureFilterCode]);
+
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -491,22 +503,6 @@ if (echecs.length > 0) {
       fetchEmplacements();
     } catch (err) {
       alert(err.response?.data?.message || 'Erreur lors de la libération');
-    }
-  };
-
-  const handleSupprimerEmplacement = async () => {
-    if (!window.confirm('Supprimer définitivement ce compte ? Cette action est irréversible et sera refusée si un historique de tickets y est lié.')) return;
-    try {
-      await api.delete('/comptes', {
-        data: {
-          role: selectedEmplacement.role,
-          username: selectedEmplacement.username
-        }
-      });
-      setShowGererModal(false);
-      fetchEmplacements();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -1828,14 +1824,16 @@ if (echecs.length > 0) {
             <div className="space-y-3">
               {selectedEmplacement.statut !== 'LIBRE_DEFINITIF' && (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleRenvoyerLien}
-                    className="w-full p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center gap-3 transition-colors cursor-pointer"
-                  >
-                    <Send className="w-4 h-4 text-slate-500" />
-                    <span>Renvoyer le lien d'activation</span>
-                  </button>
+                  {selectedEmplacement.statut === 'ATTRIBUE' && (
+                    <button
+                      type="button"
+                      onClick={handleRenvoyerLien}
+                      className="w-full p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Send className="w-4 h-4 text-slate-500" />
+                      <span>Renvoyer le lien d'activation</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -1856,15 +1854,6 @@ if (echecs.length > 0) {
                   </button>
                 </>
               )}
-
-              <button
-                type="button"
-                onClick={handleSupprimerEmplacement}
-                className="w-full p-3 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-xl text-xs text-rose-800 font-bold flex items-center gap-3 transition-colors cursor-pointer"
-              >
-                <UserMinus className="w-4 h-4 text-rose-800" />
-                <span>Supprimer définitivement</span>
-              </button>
             </div>
             <div className="flex justify-end pt-2">
               <button
