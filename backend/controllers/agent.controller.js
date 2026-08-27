@@ -390,11 +390,8 @@ async function listerTous(req, res) {
 
       let role = null;
       let roleActif = null;
-
-      if (utilisateur) {
-        role = 'UTILISATEUR';
-        roleActif = utilisateur.actif;
-      } else if (responsable) {
+     
+      if (responsable) {
         role = 'RESPONSABLE';
         roleActif = responsable.actif;
       } else if (technicien) {
@@ -403,6 +400,9 @@ async function listerTous(req, res) {
       } else if (pointFocal) {
         role = 'POINT_FOCAL';
         roleActif = pointFocal.actif;
+      } else if (utilisateur) {
+        role = 'UTILISATEUR';
+        roleActif = utilisateur.actif;
       }
 
       return {
